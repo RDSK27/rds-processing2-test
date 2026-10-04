@@ -345,13 +345,12 @@ if('serviceWorker' in navigator){
 
     <div class="segment" id="segModo">
       <button class="sel" data-v="normal">Normal</button>
-      <button data-v="extremo">Extremo</button>
       <button data-v="limite">L&#237;mite</button>
     </div>
 
     <div class="segment" id="segEstimulo">
-      <button class="sel" data-v="cambia">Sin espera</button>
-      <button data-v="fijo">Con espera</button>
+      <button class="sel" data-v="simple">Simple</button>
+      <button data-v="extremo">Extremo</button>
     </div>
 
     <div class="segment" id="segEnsayos">
@@ -408,7 +407,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v10</div>
+    <div class="app-ver">v11</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -501,12 +500,11 @@ if('serviceWorker' in navigator){
       <div class="rank-screen-title">Ranking completo</div>
       <div class="rank-tabs" id="segModoR">
         <button class="rank-tab" data-v="normal">Normal</button>
-        <button class="rank-tab" data-v="extremo">Extremo</button>
         <button class="rank-tab" data-v="limite">L&#237;mite</button>
       </div>
       <div class="rank-tabs" id="segEstR" style="margin-top:8px;">
-        <button class="rank-tab" data-v="cambia">Sin espera</button>
-        <button class="rank-tab" data-v="fijo">Con espera</button>
+        <button class="rank-tab" data-v="simple">Simple</button>
+        <button class="rank-tab" data-v="extremo">Extremo</button>
       </div>
       <div class="rank-tabs" id="segEnsR" style="margin-top:8px;">
         <button class="rank-tab" data-v="15">15</button>
@@ -576,7 +574,7 @@ function seg(id){
 }
 function selVal(id){ var b=$(id).querySelector('button.sel'); return b?b.getAttribute('data-v'):null; }
 
-var S={mode:'normal',stim:'cambia',total:15,name:'RDS',sport:'',trial:0,times:[],t0:0,trialT0:0,running:false,raf:0,lock:true,countIv:0,coverTo:0,resEnsayos:0,seq:[],g:null,stimVisible:false,armed:false,confirming:false};
+var S={mode:'normal',stim:'simple',total:15,name:'RDS',sport:'',trial:0,times:[],t0:0,trialT0:0,running:false,raf:0,lock:true,countIv:0,coverTo:0,resEnsayos:0,seq:[],g:null,stimVisible:false,armed:false,confirming:false};
 /* Tiempos de los gestos (Roberto, 2026-10-04). El tiempo que cuenta es el del PRIMER toque desde que sale el estimulo. */
 var TAP_GAP=250;       /* ms: el siguiente toque de una serie ('2' o '3' toques) tiene que empezar a menos de 250 ms del anterior (era 150; subido 100 ms el 2026-10-04) */
 var FINGER_SYNC=50;    /* ms: con 2 dedos, el segundo tiene que tocar a menos de 50 ms del primero */
@@ -592,11 +590,11 @@ var LIM_DROP_MS=600;     /* duracion de la caida desde arriba hasta su sitio */
 var LIM_MAX_PENDING=6;   /* si se acumulan mas de 6 sin responder, fin del ejercicio */
 
 function filterInitials(el){ el.value=el.value.replace(/[^A-Za-z]/g,'').toUpperCase(); }
-function startGame(){ try{ warmRank(selVal('segModo')||'normal', selVal('segEstimulo')||'cambia', parseInt(selVal('segEnsayos')||'15',10)); }catch(e){}
+function startGame(){ try{ warmRank(selVal('segModo')||'normal', selVal('segEstimulo')||'simple', parseInt(selVal('segEnsayos')||'15',10)); }catch(e){}
   S.mode=selVal('segModo')||'normal';
-  S.stim=selVal('segEstimulo')||'cambia';
+  S.stim=selVal('segEstimulo')||'simple';
   S.total=parseInt(selVal('segEnsayos')||'15',10);
-  if(S.mode==='limite'){ S.stim='cambia'; S.total=15; }   /* selectores anulados en Limite */
+  if(S.mode==='limite'){ S.total=15; }   /* en Limite no hay 15/25/50 (selector anulado): siempre 15, clave unica del ranking */
   var nm=($('user-ini-input').value||'RDS').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
   S.name=nm||'RDS';
   S.sport=($('user-sport-select')&&$('user-sport-select').value)||'';
@@ -654,31 +652,25 @@ function runGame(){
   show('game');
   S.trial=0; S.times=[]; S.running=true; S.lock=false;
   S.stimVisible=false; S.armed=false; S.lastAct=0;
-  S.seq=(S.mode==='extremo') ? buildSeqExtremo(S.total) : buildSeq(S.total);
+  S.seq=(S.stim==='extremo') ? buildSeqExtremo(S.total) : buildSeq(S.total);
   hideStim();
   $('stLast').textContent='--';
   $('stAvg').classList.remove('blink');
   S.mediaCell='stAvg';
   if($('stAvgK')) $('stAvgK').textContent='Media (ms)';
   $('stAvg').textContent='--';
-  if(S.stim==='cambia'){ if($('stBestK')) $('stBestK').textContent='Tiempo'; $('stBest').textContent='0:00.00'; }
-  else { if($('stBestK')) $('stBestK').textContent='Mejor (ms)'; $('stBest').textContent='--'; }
+  if($('stBestK')) $('stBestK').textContent='Tiempo'; $('stBest').textContent='0:00.00';
   var lim=(S.mode==='limite');
   $('trialCount').textContent = lim ? '1' : ('1/'+S.total);   /* Limite: contador (1, 2, 3...) en vez de 1/15 */
   setProgress(0);
-  if(S.stim==='cambia'){
-    startCountdown(3, function(){ S.t0=performance.now(); tickTimer(); if(lim){ limStart(); } else { scheduleNext(); } });
-  } else {
-    S.t0=performance.now();
-    if(lim){ S.spawnTo=setTimeout(limStart, 500+Math.random()*3500); } else { scheduleNext(); }
-  }
+  startCountdown(3, function(){ S.t0=performance.now(); tickTimer(); if(lim){ limStart(); } else { scheduleNext(); } });
 }
 
 function scheduleNext(){
   S.armed=true; S.stimVisible=false; S.lock=false; S.confirming=false;
   hideStim();
   $('trialCount').textContent=(S.trial+1)+'/'+S.total;
-  var gap=(S.stim==='cambia')?0:(500+Math.random()*3500);
+  var gap=0;   /* el siguiente estimulo sale al momento */
   if(S.coverTo){ clearTimeout(S.coverTo); }
   S.coverTo=setTimeout(showStim, gap);
 }
@@ -714,9 +706,9 @@ function pickWeighted(list){
   for(k=0;k<list.length;k++){ r-=list[k].w; if(r<=0) return list[k]; }
   return list[list.length-1];
 }
-function buildSeqExtremo(total){
-  var seq=[], ctx=null, prev=null, prevId=null, i;   /* ctx = {count, fingers} del ultimo estimulo de toques */
-  for(i=0;i<total;i++){
+function makeExtremoGen(){   /* generador con estado: cada llamada devuelve el siguiente estimulo de Extremo */
+  var ctx=null, prev=null, prevId=null;   /* ctx = {count, fingers} del ultimo estimulo de toques */
+  return function(){
     var opts=[ {w:2,id:'x1'}, {w:2,id:'x1d'}, {w:0.6,id:'aI'}, {w:0.6,id:'aD'}, {w:0.6,id:'aIi'}, {w:0.6,id:'aDi'} ];
     if(prev && prev.base){ opts.push({w:3,id:'p1'}, {w:3,id:'p2'}); }
     if(prev && prev.tap && ctx && ctx.count>=2){ opts.push({w:6,id:'m1'}); }
@@ -737,10 +729,11 @@ function buildSeqExtremo(total){
       d={kind:'swipe', shown:shown, inv:inv, dir:inv?(shown==='izq'?'dcha':'izq'):shown};
     }
     d.id=o.id; d.tap=(d.kind==='tap');
-    seq.push(d); prev=d; prevId=o.id;
-  }
-  return seq;
+    prev=d; prevId=o.id;
+    return d;
+  };
 }
+function buildSeqExtremo(total){ var gen=makeExtremoGen(), seq=[], i; for(i=0;i<total;i++){ seq.push(gen()); } return seq; }
 function stimHTML(d){
   var inner='', i;
   if(d.kind==='swipe' && !d.labels){ inner=arrowSVG(d.shown, d.inv); }
@@ -752,38 +745,36 @@ function drawStim(d){ $('p2Stim').innerHTML=stimHTML(d); }
 
 /* ---------- Pantalla de instrucciones (antes de la cuenta atras) ---------- */
 function infoRow(d, html){ return '<div class="info-row"><div class="info-vis">'+stimHTML(d)+'</div><div class="info-text">'+html+'</div></div>'; }
-function infoHTML(mode){
+function infoHTML(mode, stim){
   var tap=function(l,f,n){ return {kind:'tap', labels:l, fingers:f, taps:n}; };
   var sw=function(shown,inv){ return {kind:'swipe', shown:shown, inv:inv, dir:shown}; };
   var note='<div class="info-note">Toques seguidos: cada uno a menos de <b>'+TAP_GAP+' ms</b> del anterior. Con dos dedos, los dos a la vez (menos de <b>'+FINGER_SYNC+' ms</b>). Cuenta el tiempo hasta tu <b>primer toque</b>. Un error termina el ejercicio.</div>';
-  if(mode==='limite'){
-    return '<div class="info-title">L\u00edmite</div><div class="info-sub">Aguanta todos los est\u00edmulos que puedas.</div>'
-      +infoRow(tap(['2'],1,2), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada pocos est\u00edmulos salen <b>m\u00e1s seguidos</b>. La <b>barra</b> marca el tiempo que te queda antes de que salga el siguiente.')
-      +infoRow(tap(['1','1'],2,1), 'Si vas lento, el nuevo se coloca <b>encima del anterior</b> y puede taparlo. Aun as\u00ed hay que responder <b>en orden</b>: primero el m\u00e1s antiguo.')
-      +infoRow(sw('dcha',false), 'Son los del modo Normal: <b>1, 2 o 3 toques</b>, <b>dos c\u00edrculos</b> (dos dedos) y <b>flechas</b> (deslizar).')
-      +'<div class="info-note">El ejercicio <b>termina cuando fallas</b>, o si se te acumulan m\u00e1s de <b>'+LIM_MAX_PENDING+'</b> sin responder. El resultado es el <b>n\u00famero de est\u00edmulos</b> que aciertes; si hay empate, decide la velocidad de reacci\u00f3n.</div>'
-      +note;
+  var ext=(stim==='extremo'), lim=(mode==='limite');
+  var html='<div class="info-title">'+(lim?'L\u00edmite':'Normal')+' \u00b7 '+(ext?'Extremo':'Simple')+'</div>';
+  html+='<div class="info-sub">'+(lim?'Aguanta todos los est\u00edmulos que puedas.':'Responde a cada est\u00edmulo lo m\u00e1s r\u00e1pido que puedas.')+(ext?' Lo que pulsas depende del est\u00edmulo anterior.':'')+'</div>';
+  if(lim){
+    html+=infoRow(tap(['2'],1,2), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada pocos est\u00edmulos salen <b>m\u00e1s seguidos</b>. La <b>barra</b> marca el tiempo que te queda antes de que salga el siguiente.')
+        +infoRow(tap(['1','1'],2,1), 'Si vas lento, el nuevo se coloca <b>encima del anterior</b> y puede taparlo. Aun as\u00ed hay que responder <b>en orden</b>: primero el m\u00e1s antiguo.');
   }
-  if(mode==='extremo'){
-    return '<div class="info-title">Extremo</div><div class="info-sub">Lo que pulsas depende del estímulo anterior.</div>'
-      +infoRow(tap(['1'],1,1), '<b>1</b>: pulsa una vez con un dedo.')
-      +infoRow(tap(['+1'],1,2), '<b>+1</b>: solo sale justo después de un 1. Pulsa <b>2</b> veces (1 + 1).')
-      +infoRow(tap(['+2'],1,3), '<b>+2</b>: solo sale justo después de un 1. Pulsa <b>3</b> veces (1 + 2).')
+  if(ext){
+    html+=infoRow(tap(['1'],1,1), '<b>1</b>: pulsa una vez con un dedo.')
+      +infoRow(tap(['+1'],1,2), '<b>+1</b>: solo sale justo despu\u00e9s de un 1. Pulsa <b>2</b> veces (1 + 1).')
+      +infoRow(tap(['+2'],1,3), '<b>+2</b>: solo sale justo despu\u00e9s de un 1. Pulsa <b>3</b> veces (1 + 2).')
       +infoRow(tap(['\u22121'],1,1), '<b>\u22121</b>: resta uno a lo que pulsaste antes (2 \u2192 1, 3 \u2192 2).')
-      +infoRow(tap(['R'],1,1), '<b>R</b>: repite lo último que hiciste, sean toques o un deslizamiento (se repite lo que hiciste, no lo que ponía la flecha).')
-      +infoRow(tap(['1','1'],2,1), '<b>Dos círculos con 1</b>: pulsa con <b>dos dedos</b> a la vez. Si después salen +1, +2, \u22121 o R, también con los dos dedos.')
+      +infoRow(tap(['R'],1,1), '<b>R</b>: repite lo \u00faltimo que hiciste, sean toques o un deslizamiento (se repite lo que hiciste, no lo que pon\u00eda la flecha).')
+      +infoRow(tap(['1','1'],2,1), '<b>Dos c\u00edrculos con 1</b>: pulsa con <b>dos dedos</b> a la vez. Si despu\u00e9s salen +1, +2, \u22121 o R, tambi\u00e9n con los dos dedos.')
       +infoRow(sw('izq',false), '<b>Flecha roja</b>: desliza hacia donde apunta.')
-      +infoRow(sw('izq',true), '<b>Flecha con el interior blanco</b>: desliza hacia el lado <b>contrario</b>.')
-      +note;
+      +infoRow(sw('izq',true), '<b>Flecha con el interior blanco</b>: desliza hacia el lado <b>contrario</b>.');
+  } else {
+    html+=infoRow(tap(['2'],1,2), '<b>Un c\u00edrculo con 1, 2 o 3</b>: pulsa ese n\u00famero de veces con un dedo.')
+      +infoRow(tap(['2','2'],2,2), '<b>Dos c\u00edrculos con 1 o 2</b>: pulsa con <b>dos dedos</b> a la vez, ese n\u00famero de veces.')
+      +infoRow(sw('dcha',false), '<b>Flecha</b>: desliza hacia donde apunta.');
   }
-  return '<div class="info-title">Normal</div><div class="info-sub">Responde a cada estímulo lo más rápido que puedas.</div>'
-    +infoRow(tap(['2'],1,2), '<b>Un círculo con 1, 2 o 3</b>: pulsa ese número de veces con un dedo.')
-    +infoRow(tap(['2','2'],2,2), '<b>Dos círculos con 1 o 2</b>: pulsa con <b>dos dedos</b> a la vez, ese número de veces.')
-    +infoRow(sw('dcha',false), '<b>Flecha</b>: desliza hacia donde apunta.')
-    +note;
+  if(lim){ html+='<div class="info-note">El ejercicio <b>termina cuando fallas</b>, o si se te acumulan m\u00e1s de <b>'+LIM_MAX_PENDING+'</b> sin responder. El resultado es el <b>n\u00famero de est\u00edmulos</b> que aciertes; si hay empate, decide la velocidad de reacci\u00f3n.</div>'; }
+  return html+note;
 }
 function showInfo(){
-  $('p2infoBody').innerHTML=infoHTML(S.mode);
+  $('p2infoBody').innerHTML=infoHTML(S.mode, S.stim);
   $('p2infoBody').scrollTop=0;
   show('p2info');
 }
@@ -811,13 +802,15 @@ function limBar(ms){
 function limStart(){
   S.spawnTo=0; if(!S.running) return;
   S.q=[]; S.spawnN=0; S.lastCommitT=performance.now(); S.zc=10; S.lastType=-1;
+  S.gen=(S.stim==='extremo') ? makeExtremoGen() : null;   /* Limite-Extremo: mismos estimulos relativos (+1, -1, R...) en el orden en que salen = orden en que se responden */
   $('p2Stim').innerHTML='<div class="p2-stage" id="p2Stage"></div>';
   limSpawn();
 }
 function limSpawn(){
   S.spawnTo=0; if(!S.running) return;
-  var k; do{ k=Math.floor(Math.random()*STIM_TYPES.length); }while(k===S.lastType); S.lastType=k;
-  var d=STIM_TYPES[k], now=performance.now();
+  var d, now=performance.now();
+  if(S.gen){ d=S.gen(); }
+  else { var k; do{ k=Math.floor(Math.random()*STIM_TYPES.length); }while(k===S.lastType); S.lastType=k; d=STIM_TYPES[k]; }
   var sb=$('stimBox').getBoundingClientRect(), top=$('p2Top').getBoundingClientRect();
   var dy=Math.max(60, Math.round((sb.top + (sb.height-156)/2) - top.top));   /* de lo alto del hueco hasta su sitio */
   var el=document.createElement('div'); el.className='p2-fall';
@@ -882,7 +875,7 @@ function showStim(){
 
 
 function tickTimer(){
-  if(!S.running || S.stim!=='cambia') return;
+  if(!S.running) return;
   $('stBest').textContent=fmtTime(performance.now()-S.t0);
   S.raf=requestAnimationFrame(tickTimer);
 }
@@ -905,7 +898,7 @@ function failGame(kind, rt){
   else if(kind==='noswipe'){ msg='El est\u00edmulo ped\u00eda deslizar, no tocar: levantaste el dedo sin deslizar lo suficiente.'; }
   else if(kind==='overflow'){ msg='Se te han acumulado demasiados est\u00edmulos sin responder (m\u00e1s de '+LIM_MAX_PENDING+').'; }
   else { msg='Fallo, ejercicio terminado.'; }
-  if(dd && S.mode==='extremo'){   /* pista de lo que tocaba */
+  if(dd && S.stim==='extremo'){   /* pista de lo que tocaba */
     if(dd.kind==='tap' && kind!=='guess' && kind!=='early'){ msg+=' Tocaba: '+dd.taps+(dd.taps===1?' toque':' toques')+(dd.fingers===2?' con dos dedos':' con un dedo')+'.'; }
     if(dd.rep && dd.kind==='swipe'){ msg+=' Tocaba repetir el deslizamiento anterior: hacia la '+(dd.dir==='izq'?'izquierda':'derecha')+'.'; }
     else if(dd.kind==='swipe' && dd.inv && (kind==='wrongdir' || kind==='noswipe')){ msg+=' Recuerda: la flecha con el interior blanco se desliza hacia el lado contrario.'; }
@@ -1012,9 +1005,6 @@ function calc(){
 function updateStats(){
   var c=calc();
   $(S.mediaCell).textContent = c.n===0 ? '--' : String(Math.round(c.avg));
-  if(S.stim!=='cambia'){
-    $('stBest').textContent = c.n===0 ? '--' : String(Math.round(c.best));
-  }
 }
 
 function renderChart(times){
@@ -1183,10 +1173,10 @@ function renderRankList(list, el, m, latest){
 
 function rankFromSel(){
   var mode=selVal('segModoR')||'normal';
-  var lim=(mode==='limite');   /* en Limite el ranking es unico (Sin espera, 15): esos selectores quedan anulados */
-  if(lim){ setSeg('segEstR','cambia'); setSeg('segEnsR',15); }
-  $('segEstR').classList.toggle('off', lim); $('segEnsR').classList.toggle('off', lim);
-  var stim=selVal('segEstR')||'cambia';
+  var lim=(mode==='limite');   /* en Limite no hay 15/25/50: ese selector queda anulado (siempre 15, clave unica del ranking) */
+  if(lim){ setSeg('segEnsR',15); }
+  $('segEnsR').classList.toggle('off', lim);
+  var stim=selVal('segEstR')||'simple';
   var total=parseInt(selVal('segEnsR')||'15',10);
   renderRank(mode,stim,total);
 }
@@ -1227,7 +1217,7 @@ function showRanking(){
   if(btn) btn.textContent='Mostrar repetidos';
   updateRankSaveBtn();
   var mode=selVal('segModo')||'normal';
-  var stim=selVal('segEstimulo')||'cambia';
+  var stim=selVal('segEstimulo')||'simple';
   var total=parseInt(selVal('segEnsayos')||'15',10);
   setSeg('segModoR',mode); setSeg('segEstR',stim); setSeg('segEnsR',total);
   rankFromSel(); show('ranking');
@@ -1309,18 +1299,18 @@ function warmRank(mode,stim,total){
 function goHome(){ clearG(); limStop(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
 
 seg('segModo'); seg('segEstimulo'); seg('segEnsayos');
-/* En LIMITE los selectores Sin/Con espera y 15/25/50 quedan anulados (atenuados): siempre 'cambia' y 15, que es tambien la clave de su ranking.
+/* En LIMITE el selector 15/25/50 queda anulado (atenuado): siempre 15, que es tambien la clave de su ranking. Simple/Extremo funciona igual en los dos modos.
    Al volver a Normal/Extremo se recuperan los que habia elegidos. */
 var modeSaved=null;
 function applyModeUI(){
   var lim=(selVal('segModo')==='limite');
   if(lim){
-    if(!modeSaved){ modeSaved={stim:selVal('segEstimulo'), total:selVal('segEnsayos')}; }
-    setSeg('segEstimulo','cambia'); setSeg('segEnsayos','15');
+    if(!modeSaved){ modeSaved={total:selVal('segEnsayos')}; }
+    setSeg('segEnsayos','15');
   } else if(modeSaved){
-    setSeg('segEstimulo',modeSaved.stim); setSeg('segEnsayos',modeSaved.total); modeSaved=null;
+    setSeg('segEnsayos',modeSaved.total); modeSaved=null;
   }
-  $('segEstimulo').classList.toggle('off', lim); $('segEnsayos').classList.toggle('off', lim);
+  $('segEnsayos').classList.toggle('off', lim);
 }
 $('segModo').addEventListener('click', applyModeUI);
 segRank('segModoR'); segRank('segEstR'); segRank('segEnsR');
