@@ -390,7 +390,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v1</div>
+    <div class="app-ver">v2</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -552,7 +552,7 @@ function selVal(id){ var b=$(id).querySelector('button.sel'); return b?b.getAttr
 
 var S={mode:'normal',stim:'cambia',total:15,name:'RDS',sport:'',trial:0,times:[],t0:0,trialT0:0,running:false,raf:0,lock:true,countIv:0,coverTo:0,resEnsayos:0,seq:[],g:null,stimVisible:false,armed:false,confirming:false};
 /* Tiempos de los gestos (Roberto, 2026-10-04). El tiempo que cuenta es el del PRIMER toque desde que sale el estimulo. */
-var TAP_GAP=150;       /* ms: el siguiente toque de una serie ('2' o '3' toques) tiene que empezar a menos de 150 ms del anterior */
+var TAP_GAP=250;       /* ms: el siguiente toque de una serie ('2' o '3' toques) tiene que empezar a menos de 250 ms del anterior (era 150; subido 100 ms el 2026-10-04) */
 var FINGER_SYNC=50;    /* ms: con 2 dedos, el segundo tiene que tocar a menos de 50 ms del primero */
 var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento (casi horizontal) */
 var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing) */
