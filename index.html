@@ -312,6 +312,7 @@ if('serviceWorker' in navigator){
   .p2-fall{position:absolute;left:50%;top:7px;margin-left:-78px;animation:p2drop 600ms cubic-bezier(.25,.1,.6,1) both;}
   @keyframes p2drop{from{transform:translateY(calc(-1 * var(--dy,200px)));}to{transform:translateY(0);}}
   .segment button[data-soon]{opacity:.35;cursor:not-allowed;}
+  .segment.off, .rank-tabs.off{opacity:.35;pointer-events:none;}
   /* Pantalla de instrucciones (antes de la cuenta atras, en Normal y en Extremo) */
   #p2info .info-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px 16px 10px;background:#fff;}
   #p2info .info-title{font-size:1.4rem;font-weight:900;text-align:center;color:var(--rojo);text-transform:uppercase;letter-spacing:1px;margin:2px 0;}
@@ -407,7 +408,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v9</div>
+    <div class="app-ver">v10</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -567,7 +568,7 @@ function sndFail(){ var c=audioCtx(); if(!c) return; var t=c.currentTime; tone('
 function seg(id){
   var box=$(id);
   box.addEventListener('click', function(e){
-    var b=e.target.closest('button'); if(!b || b.hasAttribute('data-soon')) return;
+    var b=e.target.closest('button'); if(!b || b.hasAttribute('data-soon') || box.classList.contains('off')) return;
     var all=box.querySelectorAll('button');
     for(var i=0;i<all.length;i++) all[i].classList.remove('sel');
     b.classList.add('sel');
@@ -583,7 +584,9 @@ var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento (c
 var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing; NO se aplica en Limite) */
 /* Modo LIMITE (2026-10-04) -- valores iniciales, Roberto quiere ajustarlos tras probarlo: */
 var LIM_START_MS=1000;   /* ms entre el 1o y el 2o estimulo */
-var LIM_STEP_MS=50;      /* cada estimulo sale 50 ms (0,5 decimas) antes que el anterior */
+var LIM_STEP_MS=50;      /* el intervalo baja 50 ms ... */
+var LIM_STEP_EVERY=5;    /* ... cada 5 estimulos (los 5 primeros a LIM_START_MS, los 5 siguientes a -50 ms, etc.) */
+var LIM_CONFIRM_MS=200;  /* ms de margen tras la ultima pulsacion de una respuesta para detectar un toque de mas (solo en Limite; en Normal/Extremo es TAP_GAP) */
 var LIM_MIN_MS=300;      /* suelo del intervalo (sin suelo llegaria a 0) */
 var LIM_DROP_MS=600;     /* duracion de la caida desde arriba hasta su sitio */
 var LIM_MAX_PENDING=6;   /* si se acumulan mas de 6 sin responder, fin del ejercicio */
@@ -593,6 +596,7 @@ function startGame(){ try{ warmRank(selVal('segModo')||'normal', selVal('segEsti
   S.mode=selVal('segModo')||'normal';
   S.stim=selVal('segEstimulo')||'cambia';
   S.total=parseInt(selVal('segEnsayos')||'15',10);
+  if(S.mode==='limite'){ S.stim='cambia'; S.total=15; }   /* selectores anulados en Limite */
   var nm=($('user-ini-input').value||'RDS').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);
   S.name=nm||'RDS';
   S.sport=($('user-sport-select')&&$('user-sport-select').value)||'';
@@ -754,7 +758,7 @@ function infoHTML(mode){
   var note='<div class="info-note">Toques seguidos: cada uno a menos de <b>'+TAP_GAP+' ms</b> del anterior. Con dos dedos, los dos a la vez (menos de <b>'+FINGER_SYNC+' ms</b>). Cuenta el tiempo hasta tu <b>primer toque</b>. Un error termina el ejercicio.</div>';
   if(mode==='limite'){
     return '<div class="info-title">L\u00edmite</div><div class="info-sub">Aguanta todos los est\u00edmulos que puedas.</div>'
-      +infoRow(tap(['2'],1,2), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada vez salen <b>m\u00e1s seguidos</b>.')
+      +infoRow(tap(['2'],1,2), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada pocos est\u00edmulos salen <b>m\u00e1s seguidos</b>. La <b>barra</b> marca el tiempo que te queda antes de que salga el siguiente.')
       +infoRow(tap(['1','1'],2,1), 'Si vas lento, el nuevo se coloca <b>encima del anterior</b> y puede taparlo. Aun as\u00ed hay que responder <b>en orden</b>: primero el m\u00e1s antiguo.')
       +infoRow(sw('dcha',false), 'Son los del modo Normal: <b>1, 2 o 3 toques</b>, <b>dos c\u00edrculos</b> (dos dedos) y <b>flechas</b> (deslizar).')
       +'<div class="info-note">El ejercicio <b>termina cuando fallas</b>, o si se te acumulan m\u00e1s de <b>'+LIM_MAX_PENDING+'</b> sin responder. El resultado es el <b>n\u00famero de est\u00edmulos</b> que aciertes; si hay empate, decide la velocidad de reacci\u00f3n.</div>'
@@ -792,8 +796,18 @@ function startFromInfo(){ var inf=$('p2info'); if(!inf || !inf.classList.contain
    LIM_MAX_PENDING) y el resultado es el numero de estimulos acertados (empate: velocidad de reaccion media).
    La barra sobre el area de pulsado muestra cuantos estimulos hay pendientes (llena = fin) y el numero de la izquierda
    cuenta los ensayos. El tiempo de reaccion de cada uno cuenta desde que sale o desde que acabas el anterior (lo que sea mas tarde). */
-function limInterval(n){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*(n-1)); }   /* n = estimulos ya lanzados */
-function limStop(){ if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; } S.q=[]; }
+function limInterval(n){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(n/LIM_STEP_EVERY)); }   /* n = estimulos ya lanzados; devuelve el intervalo hasta el siguiente */
+function limStop(){
+  if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; }
+  S.q=[];
+  var p=$('prog'); if(p){ p.style.transition=''; p.style.width='0%'; }   /* la barra vuelve a su comportamiento normal */
+}
+/* La barra se llena al salir un estimulo y se vacia hasta que sale el siguiente: es el tiempo que queda para responder antes de que se superponga. */
+function limBar(ms){
+  var p=$('prog'); if(!p) return;
+  p.style.transition='none'; p.style.width='100%'; void p.offsetWidth;
+  p.style.transition='width '+ms+'ms linear'; p.style.width='0%';
+}
 function limStart(){
   S.spawnTo=0; if(!S.running) return;
   S.q=[]; S.spawnN=0; S.lastCommitT=performance.now(); S.zc=10; S.lastType=-1;
@@ -812,9 +826,11 @@ function limSpawn(){
   $('p2Stage').appendChild(el);
   S.q.push({d:d, spawnT:now, el:el}); S.spawnN++;
   if(S.q.length>LIM_MAX_PENDING){ failGame('overflow'); return; }
-  setProgress(S.q.length/LIM_MAX_PENDING);
+
   if(S.q.length===1){ limArm(); }
-  S.spawnTo=setTimeout(limSpawn, limInterval(S.spawnN));
+  var nextMs=limInterval(S.spawnN);
+  limBar(nextMs);
+  S.spawnTo=setTimeout(limSpawn, nextMs);
 }
 function limArm(){   /* el mas antiguo pasa a ser el objetivo */
   var q0=S.q[0];
@@ -822,7 +838,7 @@ function limArm(){   /* el mas antiguo pasa a ser el objetivo */
   if(!q0){ S.stimVisible=false; return; }
   S.g={d:q0.d, phase:'wait', groups:0, downs:0, grpT:0, firstT:0, rt:0, ptr:null, sx:0, sy:0, done:false, sync:0, gap:0, confirm:0};
   S.stimVisible=true; S.armed=false;
-  S.trialT0=Math.max(q0.spawnT, S.lastCommitT);
+  S.trialT0=q0.spawnT;   /* la reaccion cuenta desde que SALE el estimulo (aunque haya que esperar a contestar a los anteriores) */
 }
 function limCommit(){
   var g=S.g; if(!g || !S.running) return;
@@ -834,7 +850,7 @@ function limCommit(){
   $('stLast').textContent=String(Math.round(rt));
   updateStats();
   $('trialCount').textContent=String(S.trial+1);
-  setProgress(S.q.length/LIM_MAX_PENDING);
+
   S.stimVisible=false;
   limArm();
 }
@@ -957,7 +973,7 @@ function padDown(e, others){
     var wait=Math.max(0, g.grpT+TAP_GAP-performance.now());
     if(g.groups>=d.taps){                                       /* ya estan todos: se espera TAP_GAP por si llega uno de mas */
       S.confirming=true;
-      g.confirm=setTimeout(function(){ g.confirm=0; if(S.g===g) commitTrial(); }, wait);
+      g.confirm=setTimeout(function(){ g.confirm=0; if(S.g===g) commitTrial(); }, Math.max(0, g.grpT+(S.mode==='limite'?LIM_CONFIRM_MS:TAP_GAP)-performance.now()));
     } else {                                                    /* falta alguno: tiene que llegar antes de TAP_GAP */
       g.gap=setTimeout(function(){ g.gap=0; if(S.g===g) failGame('gap'); }, wait);
     }
@@ -1167,6 +1183,9 @@ function renderRankList(list, el, m, latest){
 
 function rankFromSel(){
   var mode=selVal('segModoR')||'normal';
+  var lim=(mode==='limite');   /* en Limite el ranking es unico (Sin espera, 15): esos selectores quedan anulados */
+  if(lim){ setSeg('segEstR','cambia'); setSeg('segEnsR',15); }
+  $('segEstR').classList.toggle('off', lim); $('segEnsR').classList.toggle('off', lim);
   var stim=selVal('segEstR')||'cambia';
   var total=parseInt(selVal('segEnsR')||'15',10);
   renderRank(mode,stim,total);
@@ -1174,7 +1193,7 @@ function rankFromSel(){
 function segRank(id){
   var box=$(id);
   box.addEventListener('click', function(e){
-    var b=e.target.closest('button'); if(!b) return;
+    var b=e.target.closest('button'); if(!b || box.classList.contains('off')) return;
     var all=box.querySelectorAll('button'),i;
     for(i=0;i<all.length;i++) all[i].classList.remove('sel');
     b.classList.add('sel'); rankFromSel();
@@ -1211,7 +1230,7 @@ function showRanking(){
   var stim=selVal('segEstimulo')||'cambia';
   var total=parseInt(selVal('segEnsayos')||'15',10);
   setSeg('segModoR',mode); setSeg('segEstR',stim); setSeg('segEnsR',total);
-  renderRank(mode,stim,total); show('ranking');
+  rankFromSel(); show('ranking');
 }
 function capName(rows,max){
   var seen={}, out=[], i, nm;
@@ -1290,6 +1309,20 @@ function warmRank(mode,stim,total){
 function goHome(){ clearG(); limStop(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
 
 seg('segModo'); seg('segEstimulo'); seg('segEnsayos');
+/* En LIMITE los selectores Sin/Con espera y 15/25/50 quedan anulados (atenuados): siempre 'cambia' y 15, que es tambien la clave de su ranking.
+   Al volver a Normal/Extremo se recuperan los que habia elegidos. */
+var modeSaved=null;
+function applyModeUI(){
+  var lim=(selVal('segModo')==='limite');
+  if(lim){
+    if(!modeSaved){ modeSaved={stim:selVal('segEstimulo'), total:selVal('segEnsayos')}; }
+    setSeg('segEstimulo','cambia'); setSeg('segEnsayos','15');
+  } else if(modeSaved){
+    setSeg('segEstimulo',modeSaved.stim); setSeg('segEnsayos',modeSaved.total); modeSaved=null;
+  }
+  $('segEstimulo').classList.toggle('off', lim); $('segEnsayos').classList.toggle('off', lim);
+}
+$('segModo').addEventListener('click', applyModeUI);
 segRank('segModoR'); segRank('segEstR'); segRank('segEnsR');
 $('btnRank2').addEventListener('click', showRanking);
 $('btnGuardar').addEventListener('click', function(){
