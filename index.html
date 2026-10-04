@@ -300,7 +300,7 @@ if('serviceWorker' in navigator){
   .p2-stim{display:flex;align-items:center;justify-content:center;gap:16px;}
   /* Circulo grande = zona del estimulo; DENTRO van el circulo con el numero, los dos circulos o la flecha */
   .p2-ring{width:156px;height:156px;border-radius:50%;background:var(--negro);border:5px solid var(--rojo);box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;}
-  .p2-dot{border-radius:50%;background:#fff;border:3px solid var(--rojo);color:var(--rojo);display:flex;align-items:center;justify-content:center;font-weight:900;box-sizing:border-box;line-height:1;}
+  .p2-dot{border-radius:50%;background:var(--rojo);border:3px solid #fff;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;box-sizing:border-box;line-height:1;}
   .p2-dot-lg{width:84px;height:84px;font-size:52px;}
   .p2-dot-sm{width:56px;height:56px;font-size:34px;}
   .pad{flex:1.1;touch-action:none;background:#f0f0f0;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
@@ -392,7 +392,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v4</div>
+    <div class="app-ver">v5</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -593,7 +593,7 @@ function arrowSVG(dir){
   var pth = (dir==='dcha')
     ? 'M6,21 L58,21 L58,6 L95,32 L58,58 L58,43 L6,43 Z'
     : 'M94,21 L42,21 L42,6 L5,32 L42,58 L42,43 L94,43 Z';
-  return '<svg viewBox="0 0 100 64" width="96" height="61" style="display:block"><path d="'+pth+'" fill="#fff" stroke="#A23A29" stroke-width="5" stroke-linejoin="round"/></svg>';
+  return '<svg viewBox="0 0 100 64" width="96" height="61" style="display:block"><path d="'+pth+'" fill="#A23A29" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>';
 }
 
 function hideStim(){
