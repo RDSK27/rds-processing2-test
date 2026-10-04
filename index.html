@@ -298,9 +298,11 @@ if('serviceWorker' in navigator){
   .p2-top{flex:1;min-height:0;}   /* hueco reservado arriba (otros modos lo usaran); el estimulo queda hacia la mitad de la pantalla */
   .stim-box{width:100%;height:170px;flex-direction:column;}
   .p2-stim{display:flex;align-items:center;justify-content:center;gap:16px;}
-  .p2-circle{border-radius:50%;background:var(--negro);border:5px solid var(--rojo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;box-sizing:border-box;line-height:1;}
-  .p2-lg{width:150px;height:150px;font-size:88px;}
-  .p2-sm{width:112px;height:112px;font-size:64px;}
+  /* Circulo grande = zona del estimulo; DENTRO van el circulo con el numero, los dos circulos o la flecha */
+  .p2-ring{width:156px;height:156px;border-radius:50%;background:#f4f4f4;border:5px solid var(--negro);box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .p2-dot{border-radius:50%;background:var(--negro);border:3px solid var(--rojo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;box-sizing:border-box;line-height:1;}
+  .p2-dot-lg{width:84px;height:84px;font-size:52px;}
+  .p2-dot-sm{width:56px;height:56px;font-size:34px;}
   .pad{flex:1.1;touch-action:none;background:#f0f0f0;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
   .pad:active{background:#e4e4e4;}
   .pad-label{color:#bdbdbd;font-weight:800;letter-spacing:2px;text-transform:uppercase;font-size:20px;pointer-events:none;}
@@ -390,7 +392,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v2</div>
+    <div class="app-ver">v3</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -591,7 +593,7 @@ function arrowSVG(dir){
   var pth = (dir==='dcha')
     ? 'M6,21 L58,21 L58,6 L95,32 L58,58 L58,43 L6,43 Z'
     : 'M94,21 L42,21 L42,6 L5,32 L42,58 L42,43 L94,43 Z';
-  return '<svg viewBox="0 0 100 64" width="96" height="61" style="display:block"><path d="'+pth+'" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>';
+  return '<svg viewBox="0 0 100 64" width="96" height="61" style="display:block"><path d="'+pth+'" fill="#111" stroke="#111" stroke-width="3" stroke-linejoin="round"/></svg>';
 }
 
 function hideStim(){
@@ -664,11 +666,11 @@ function buildSeq(total){
   return seq;
 }
 function drawStim(d){
-  var h='', i;
-  if(d.kind==='swipe'){ h='<div class="p2-circle p2-lg">'+arrowSVG(d.dir)+'</div>'; }
-  else if(d.circles.length===2){ for(i=0;i<2;i++) h+='<div class="p2-circle p2-sm">'+d.circles[i]+'</div>'; }
-  else { h='<div class="p2-circle p2-lg">'+d.circles[0]+'</div>'; }
-  $('p2Stim').innerHTML=h;
+  var inner='', i;
+  if(d.kind==='swipe'){ inner=arrowSVG(d.dir); }
+  else if(d.circles.length===2){ for(i=0;i<2;i++) inner+='<div class="p2-dot p2-dot-sm">'+d.circles[i]+'</div>'; }
+  else { inner='<div class="p2-dot p2-dot-lg">'+d.circles[0]+'</div>'; }
+  $('p2Stim').innerHTML='<div class="p2-ring">'+inner+'</div>';
 }
 
 function showStim(){
