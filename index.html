@@ -407,7 +407,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v8</div>
+    <div class="app-ver">v9</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -644,7 +644,7 @@ function startCountdown(n, cb){
 }
 
 function runGame(){
-  clearG(); limStop();
+  clearG(); limStop(); padDownAt={};
   if(S.countIv){ clearInterval(S.countIv); S.countIv=0; }
   if(S.coverTo){ clearTimeout(S.coverTo); S.coverTo=0; }
   show('game');
@@ -900,6 +900,8 @@ function failGame(kind, rt){
 }
 
 /* ---------- Motor de gestos (Pointer Events: toques, 2 dedos y deslizamiento) ---------- */
+var padDownAt={};   /* pointerId -> instante en que se apoyo ese dedo; se borra al levantarlo (o si lleva >3 s, por si se perdio el evento) */
+function padFingersDown(now){ var n=0, k; for(k in padDownAt){ if(now-padDownAt[k]>3000){ delete padDownAt[k]; } else { n++; } } return n; }
 function evT(e){ var t=e.timeStamp; return (t && t>0) ? t : performance.now(); }
 function clearG(){
   var g=S.g;
@@ -920,7 +922,7 @@ function commitTrial(){
   hideStim();
   if(S.trial>=S.total){ finish(); } else { scheduleNext(); }
 }
-function padDown(e){
+function padDown(e, others){
   if(!S.running || S.lock) return;
   var t=evT(e);
   if(S.confirming){ var gc=S.g; failGame((gc && t-gc.grpT<=FINGER_SYNC) ? 'extrafinger' : 'extra'); return; }   /* un toque (o dedo) mas durante la ventana de confirmacion */
@@ -940,6 +942,8 @@ function padDown(e){
   /* toques */
   if(g.downs===0){                                              /* primer dedo de un toque */
     if(g.gap){ clearTimeout(g.gap); g.gap=0; }
+    /* Estimulo de UN dedo: si ya hay otro dedo apoyado, es un segundo dedo a la vez (no un segundo toque): fallo. Un toque normal siempre levanta el dedo antes del siguiente. */
+    if(d.fingers===1 && others>0){ failGame('extrafinger'); return; }
     g.grpT=t; g.downs=1;
     if(d.fingers===2){ g.sync=setTimeout(function(){ g.sync=0; if(S.g===g) failGame('sync'); }, FINGER_SYNC); }
   } else {                                                      /* otro dedo del mismo toque */
@@ -973,10 +977,10 @@ function padUp(e){
 }
 (function(){
   var pad=$('pad');
-  pad.addEventListener('pointerdown', function(e){ if(e.cancelable) e.preventDefault(); try{ pad.setPointerCapture(e.pointerId); }catch(_){} padDown(e); });
+  pad.addEventListener('pointerdown', function(e){ if(e.cancelable) e.preventDefault(); try{ pad.setPointerCapture(e.pointerId); }catch(_){} var now=performance.now(), others=padFingersDown(now); padDownAt[e.pointerId]=now; padDown(e, others); });
   pad.addEventListener('pointermove', padMove);
-  pad.addEventListener('pointerup', padUp);
-  pad.addEventListener('pointercancel', padUp);
+  pad.addEventListener('pointerup', function(e){ delete padDownAt[e.pointerId]; padUp(e); });
+  pad.addEventListener('pointercancel', function(e){ delete padDownAt[e.pointerId]; padUp(e); });
   pad.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 })();
 
