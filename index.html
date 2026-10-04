@@ -307,6 +307,10 @@ if('serviceWorker' in navigator){
   .pad:active{background:#e4e4e4;}
   .pad-label{color:#bdbdbd;font-weight:800;letter-spacing:2px;text-transform:uppercase;font-size:20px;pointer-events:none;}
   .p2-dot-lg.long{font-size:42px;}
+  /* Modo Limite: los estimulos caen desde arriba y se apilan en su sitio (el nuevo tapa al anterior) */
+  .p2-stage{position:relative;width:100%;height:170px;}
+  .p2-fall{position:absolute;left:50%;top:7px;margin-left:-78px;animation:p2drop 600ms cubic-bezier(.25,.1,.6,1) both;}
+  @keyframes p2drop{from{transform:translateY(calc(-1 * var(--dy,200px)));}to{transform:translateY(0);}}
   .segment button[data-soon]{opacity:.35;cursor:not-allowed;}
   /* Pantalla de instrucciones (antes de la cuenta atras, en Normal y en Extremo) */
   #p2info .info-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px 16px 10px;background:#fff;}
@@ -341,7 +345,7 @@ if('serviceWorker' in navigator){
     <div class="segment" id="segModo">
       <button class="sel" data-v="normal">Normal</button>
       <button data-v="extremo">Extremo</button>
-      <button data-v="limite" data-soon="1" title="Pr&#243;ximamente">L&#237;mite</button>
+      <button data-v="limite">L&#237;mite</button>
     </div>
 
     <div class="segment" id="segEstimulo">
@@ -403,7 +407,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v7</div>
+    <div class="app-ver">v8</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -576,7 +580,13 @@ var S={mode:'normal',stim:'cambia',total:15,name:'RDS',sport:'',trial:0,times:[]
 var TAP_GAP=250;       /* ms: el siguiente toque de una serie ('2' o '3' toques) tiene que empezar a menos de 250 ms del anterior (era 150; subido 100 ms el 2026-10-04) */
 var FINGER_SYNC=50;    /* ms: con 2 dedos, el segundo tiene que tocar a menos de 50 ms del primero */
 var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento (casi horizontal) */
-var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing) */
+var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing; NO se aplica en Limite) */
+/* Modo LIMITE (2026-10-04) -- valores iniciales, Roberto quiere ajustarlos tras probarlo: */
+var LIM_START_MS=1000;   /* ms entre el 1o y el 2o estimulo */
+var LIM_STEP_MS=50;      /* cada estimulo sale 50 ms (0,5 decimas) antes que el anterior */
+var LIM_MIN_MS=300;      /* suelo del intervalo (sin suelo llegaria a 0) */
+var LIM_DROP_MS=600;     /* duracion de la caida desde arriba hasta su sitio */
+var LIM_MAX_PENDING=6;   /* si se acumulan mas de 6 sin responder, fin del ejercicio */
 
 function filterInitials(el){ el.value=el.value.replace(/[^A-Za-z]/g,'').toUpperCase(); }
 function startGame(){ try{ warmRank(selVal('segModo')||'normal', selVal('segEstimulo')||'cambia', parseInt(selVal('segEnsayos')||'15',10)); }catch(e){}
@@ -634,7 +644,7 @@ function startCountdown(n, cb){
 }
 
 function runGame(){
-  clearG();
+  clearG(); limStop();
   if(S.countIv){ clearInterval(S.countIv); S.countIv=0; }
   if(S.coverTo){ clearTimeout(S.coverTo); S.coverTo=0; }
   show('game');
@@ -649,13 +659,14 @@ function runGame(){
   $('stAvg').textContent='--';
   if(S.stim==='cambia'){ if($('stBestK')) $('stBestK').textContent='Tiempo'; $('stBest').textContent='0:00.00'; }
   else { if($('stBestK')) $('stBestK').textContent='Mejor (ms)'; $('stBest').textContent='--'; }
-  $('trialCount').textContent='1/'+S.total;
+  var lim=(S.mode==='limite');
+  $('trialCount').textContent = lim ? '1' : ('1/'+S.total);   /* Limite: contador (1, 2, 3...) en vez de 1/15 */
   setProgress(0);
   if(S.stim==='cambia'){
-    startCountdown(3, function(){ S.t0=performance.now(); tickTimer(); scheduleNext(); });
+    startCountdown(3, function(){ S.t0=performance.now(); tickTimer(); if(lim){ limStart(); } else { scheduleNext(); } });
   } else {
     S.t0=performance.now();
-    scheduleNext();
+    if(lim){ S.spawnTo=setTimeout(limStart, 500+Math.random()*3500); } else { scheduleNext(); }
   }
 }
 
@@ -741,6 +752,14 @@ function infoHTML(mode){
   var tap=function(l,f,n){ return {kind:'tap', labels:l, fingers:f, taps:n}; };
   var sw=function(shown,inv){ return {kind:'swipe', shown:shown, inv:inv, dir:shown}; };
   var note='<div class="info-note">Toques seguidos: cada uno a menos de <b>'+TAP_GAP+' ms</b> del anterior. Con dos dedos, los dos a la vez (menos de <b>'+FINGER_SYNC+' ms</b>). Cuenta el tiempo hasta tu <b>primer toque</b>. Un error termina el ejercicio.</div>';
+  if(mode==='limite'){
+    return '<div class="info-title">L\u00edmite</div><div class="info-sub">Aguanta todos los est\u00edmulos que puedas.</div>'
+      +infoRow(tap(['2'],1,2), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada vez salen <b>m\u00e1s seguidos</b>.')
+      +infoRow(tap(['1','1'],2,1), 'Si vas lento, el nuevo se coloca <b>encima del anterior</b> y puede taparlo. Aun as\u00ed hay que responder <b>en orden</b>: primero el m\u00e1s antiguo.')
+      +infoRow(sw('dcha',false), 'Son los del modo Normal: <b>1, 2 o 3 toques</b>, <b>dos c\u00edrculos</b> (dos dedos) y <b>flechas</b> (deslizar).')
+      +'<div class="info-note">El ejercicio <b>termina cuando fallas</b>, o si se te acumulan m\u00e1s de <b>'+LIM_MAX_PENDING+'</b> sin responder. El resultado es el <b>n\u00famero de est\u00edmulos</b> que aciertes; si hay empate, decide la velocidad de reacci\u00f3n.</div>'
+      +note;
+  }
   if(mode==='extremo'){
     return '<div class="info-title">Extremo</div><div class="info-sub">Lo que pulsas depende del estímulo anterior.</div>'
       +infoRow(tap(['1'],1,1), '<b>1</b>: pulsa una vez con un dedo.')
@@ -765,6 +784,77 @@ function showInfo(){
   show('p2info');
 }
 function startFromInfo(){ var inf=$('p2info'); if(!inf || !inf.classList.contains('active')) return; runGame(); }
+
+/* ---------- Modo LIMITE ----------
+   Los estimulos (los mismos que en Normal) SALEN SOLOS desde arriba, uno cada LIM_START_MS al principio y cada vez
+   LIM_STEP_MS antes (suelo LIM_MIN_MS), y caen hasta su sitio. El nuevo se coloca ENCIMA del anterior: si vas lento
+   puede taparlo, pero hay que responder EN ORDEN (primero el mas antiguo, S.q[0]). Termina al fallar (o si se acumulan mas de
+   LIM_MAX_PENDING) y el resultado es el numero de estimulos acertados (empate: velocidad de reaccion media).
+   La barra sobre el area de pulsado muestra cuantos estimulos hay pendientes (llena = fin) y el numero de la izquierda
+   cuenta los ensayos. El tiempo de reaccion de cada uno cuenta desde que sale o desde que acabas el anterior (lo que sea mas tarde). */
+function limInterval(n){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*(n-1)); }   /* n = estimulos ya lanzados */
+function limStop(){ if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; } S.q=[]; }
+function limStart(){
+  S.spawnTo=0; if(!S.running) return;
+  S.q=[]; S.spawnN=0; S.lastCommitT=performance.now(); S.zc=10; S.lastType=-1;
+  $('p2Stim').innerHTML='<div class="p2-stage" id="p2Stage"></div>';
+  limSpawn();
+}
+function limSpawn(){
+  S.spawnTo=0; if(!S.running) return;
+  var k; do{ k=Math.floor(Math.random()*STIM_TYPES.length); }while(k===S.lastType); S.lastType=k;
+  var d=STIM_TYPES[k], now=performance.now();
+  var sb=$('stimBox').getBoundingClientRect(), top=$('p2Top').getBoundingClientRect();
+  var dy=Math.max(60, Math.round((sb.top + (sb.height-156)/2) - top.top));   /* de lo alto del hueco hasta su sitio */
+  var el=document.createElement('div'); el.className='p2-fall';
+  el.style.cssText='--dy:'+dy+'px;z-index:'+(++S.zc)+';animation-duration:'+LIM_DROP_MS+'ms';
+  el.innerHTML=stimHTML(d);
+  $('p2Stage').appendChild(el);
+  S.q.push({d:d, spawnT:now, el:el}); S.spawnN++;
+  if(S.q.length>LIM_MAX_PENDING){ failGame('overflow'); return; }
+  setProgress(S.q.length/LIM_MAX_PENDING);
+  if(S.q.length===1){ limArm(); }
+  S.spawnTo=setTimeout(limSpawn, limInterval(S.spawnN));
+}
+function limArm(){   /* el mas antiguo pasa a ser el objetivo */
+  var q0=S.q[0];
+  clearG();
+  if(!q0){ S.stimVisible=false; return; }
+  S.g={d:q0.d, phase:'wait', groups:0, downs:0, grpT:0, firstT:0, rt:0, ptr:null, sx:0, sy:0, done:false, sync:0, gap:0, confirm:0};
+  S.stimVisible=true; S.armed=false;
+  S.trialT0=Math.max(q0.spawnT, S.lastCommitT);
+}
+function limCommit(){
+  var g=S.g; if(!g || !S.running) return;
+  var rt=g.rt;
+  clearG();
+  sndSymbol();
+  var done=S.q.shift(); if(done && done.el && done.el.parentNode){ done.el.parentNode.removeChild(done.el); }
+  S.times.push(rt); S.trial++; S.lastCommitT=performance.now();
+  $('stLast').textContent=String(Math.round(rt));
+  updateStats();
+  $('trialCount').textContent=String(S.trial+1);
+  setProgress(S.q.length/LIM_MAX_PENDING);
+  S.stimVisible=false;
+  limArm();
+}
+function finishLimite(msg){
+  limStop();
+  S.running=false; S.lock=true; S.stimVisible=false;
+  clearG(); hideStim();
+  var total=performance.now()-S.t0, c=calc();
+  setResultLabels('limite');
+  $('resMsg').style.display='none';
+  var re=$('resEns'); if(re){ re.textContent=msg||''; re.style.display=msg?'':'none'; }   /* motivo del fin */
+  $('rAvg').textContent=String(c.n);
+  $('rTime').textContent=fmtTime(total);
+  $('rBest').textContent=(c.n?Math.round(c.avg):0)+' ms';
+  $('rWorst').textContent=(c.n?Math.round(c.best):0)+' ms';
+  S.resAvg=c.avg; S.resTotal=total; S.resEnsayos=c.n; S.saved=(c.n>0)?false:null;   /* sin ningun acierto no hay nada que guardar */
+  renderChart(S.times);
+  var gb=$('btnGuardar'); if(gb){ gb.disabled=(c.n===0); gb.textContent='Guardar resultado'; }
+  showSaveScreen('Fin del ejercicio');
+}
 function showStim(){
   S.coverTo=0;
   var d=S.seq[S.trial];
@@ -797,12 +887,14 @@ function failGame(kind, rt){
   else if(kind==='extrafinger'){ msg='Has usado m\u00e1s dedos de los que ped\u00eda el est\u00edmulo.'; }
   else if(kind==='wrongdir'){ msg='Has deslizado en la direcci\u00f3n equivocada.'; }
   else if(kind==='noswipe'){ msg='El est\u00edmulo ped\u00eda deslizar, no tocar: levantaste el dedo sin deslizar lo suficiente.'; }
+  else if(kind==='overflow'){ msg='Se te han acumulado demasiados est\u00edmulos sin responder (m\u00e1s de '+LIM_MAX_PENDING+').'; }
   else { msg='Fallo, ejercicio terminado.'; }
   if(dd && S.mode==='extremo'){   /* pista de lo que tocaba */
     if(dd.kind==='tap' && kind!=='guess' && kind!=='early'){ msg+=' Tocaba: '+dd.taps+(dd.taps===1?' toque':' toques')+(dd.fingers===2?' con dos dedos':' con un dedo')+'.'; }
     if(dd.rep && dd.kind==='swipe'){ msg+=' Tocaba repetir el deslizamiento anterior: hacia la '+(dd.dir==='izq'?'izquierda':'derecha')+'.'; }
     else if(dd.kind==='swipe' && dd.inv && (kind==='wrongdir' || kind==='noswipe')){ msg+=' Recuerda: la flecha con el interior blanco se desliza hacia el lado contrario.'; }
   }
+  if(S.mode==='limite'){ finishLimite(msg); return; }   /* en Limite el fallo no anula: el resultado es lo conseguido hasta ahora */
   var fm=$('failMsg'); if(fm){ fm.textContent=msg; }
   show('fail');
 }
@@ -816,6 +908,7 @@ function clearG(){
 }
 function commitTrial(){
   var g=S.g; if(!g || !S.running) return;
+  if(S.mode==='limite'){ limCommit(); return; }
   var rt=g.rt;
   clearG();
   sndSymbol();
@@ -836,7 +929,7 @@ function padDown(e){
   var d=g.d;
   if(g.phase==='wait'){                                        /* PRIMER toque: de aqui sale el tiempo de reaccion */
     g.firstT=t; g.rt=t-S.trialT0;
-    if(g.rt<GUESS_MIN){ failGame('guess', g.rt); return; }
+    if(g.rt<GUESS_MIN && S.mode!=='limite'){ failGame('guess', g.rt); return; }
     g.phase='run';
   }
   if(d.kind==='swipe'){
@@ -1190,7 +1283,7 @@ function warmRank(mode,stim,total){
   window.fbLoad(mode,stim,total).then(function(rows){ if(rows){ saveRankCache(rcKey, rows); } }).catch(function(){});
 }
 
-function goHome(){ clearG(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
+function goHome(){ clearG(); limStop(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
 
 seg('segModo'); seg('segEstimulo'); seg('segEnsayos');
 segRank('segModoR'); segRank('segEstR'); segRank('segEnsR');

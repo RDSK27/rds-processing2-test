@@ -1,5 +1,5 @@
 /* RDS Processing 2 - Service Worker */
-var CACHE = 'prst2-v7';
+var CACHE = 'prst2-v8';
 var ASSETS = [
   './',
   './index.html',
