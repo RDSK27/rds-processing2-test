@@ -414,7 +414,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v24</div>
+    <div class="app-ver">v25</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -599,6 +599,9 @@ var LIM_CONFIRM_MS=0;    /* ms de margen tras la ultima pulsacion de una respues
 var LIM_MIN_MS=300;      /* suelo de la 1a fase (se alcanza en el estimulo 70) */
 var LIM_SLOW_FROM=30;    /* 2026-10-08: a partir del estimulo 30 el intervalo baja LIM_STEP_MS (50 ms) cada LIM_SLOW_EVERY (10) estimulos en vez de cada 5 */
 var LIM_SLOW_EVERY=10;
+var LIM_SLOW_FROM_LIMITE=25;   /* en Limite la fase lenta (-50 ms cada 10) empieza en el 25; Normal y Extremo comparten la curva (desde el 30) */
+var LIM_PREVIEW_FROM=40;       /* Normal y Extremo: a partir del estimulo 40 los 3 circulos de arriba se VEN (aviso; se responde al bajar) */
+var LIM_PREVIEW_FROM_LIMITE=35; /* Limite: a partir del 35 */
 var LIM_FAST_FROM=70;    /* 2a fase (2026-10-08): a partir del estimulo 70 ... */
 var LIM_FAST_STEP_MS=25; /* ... el intervalo baja 25 ms ... */
 var LIM_FAST_EVERY=10;   /* ... cada 10 estimulos ... */
@@ -781,7 +784,7 @@ function infoHTML(mode, stim){
   var html='<div class="info-title">'+names[mode]+' \u00b7 '+(dyn?'Din\u00e1mico':'Est\u00e1tico')+'</div>';
   html+='<div class="info-sub">'+(dyn?'Aguanta todos los est\u00edmulos que puedas.':'Responde a cada est\u00edmulo lo m\u00e1s r\u00e1pido que puedas ('+S.total+' est\u00edmulos).')+(mode==='limite'?' Lo que pulsas depende del est\u00edmulo anterior.':'')+'</div>';
   if(dyn){
-    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os, <u>todos en negro</u></b>: sirven de aviso, no se ven ni se pueden responder. El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y <b>al bajar se descubre</b> y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
+    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os, <u>todos en negro</u></b>: sirven de aviso: no se ven ni se pueden responder (a partir del est\u00edmulo '+((mode==='limite')?LIM_PREVIEW_FROM_LIMITE:LIM_PREVIEW_FROM)+' empiezan a verse, pero solo se responde al bajar). El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y <b>al bajar se descubre</b> y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
         +infoRow(sw('arr',false), '<b>Responde cuando baja</b>, ya con el est\u00edmulo a la vista. Si vas lento, el que baja se coloca <b>encima del anterior</b> y puede taparlo. Hay que responder <b>en orden</b>: primero el m\u00e1s antiguo. La reacci\u00f3n cuenta desde que el est\u00edmulo empieza a bajar.');
   }
   if(mode==='normal'){
@@ -827,7 +830,8 @@ var LIM_SMALL=0.36;      /* escala de los estimulos de la fila (el anillo de 156
 var LIM_SHIFT_MS=260;    /* los de la fila avanzan hacia el centro */
 function limInterval(n){
   if(n>=LIM_FAST_FROM){ return Math.max(LIM_FAST_MIN_MS, LIM_MIN_MS - LIM_FAST_STEP_MS*Math.floor((n-LIM_FAST_FROM)/LIM_FAST_EVERY)); }
-  if(n>=LIM_SLOW_FROM){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(LIM_SLOW_FROM/LIM_STEP_EVERY) - LIM_STEP_MS*Math.floor((n-LIM_SLOW_FROM)/LIM_SLOW_EVERY)); }
+  var sf=(S.mode==='limite') ? LIM_SLOW_FROM_LIMITE : LIM_SLOW_FROM;
+  if(n>=sf){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(sf/LIM_STEP_EVERY) - LIM_STEP_MS*Math.floor((n-sf)/LIM_SLOW_EVERY)); }
   return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(n/LIM_STEP_EVERY));
 }   /* n = numero de estimulos que ya han pasado a ser el de delante (contando este); devuelve el tiempo que esta delante antes de bajar */
 function limStop(){
@@ -854,11 +858,15 @@ function limAddTop(i){   /* un estimulo nuevo entra por el hueco i de la fila (p
   $('p2Stage').appendChild(el); void el.offsetWidth;
   el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out, opacity '+LIM_SHIFT_MS+'ms ease-out'; el.style.opacity='1'; el.style.transform=limSlot(i);
   S.top.push({d:d, el:el, frontT:0, shown:false});
+  if(limPreviewOn()){ limReveal(S.top[S.top.length-1]); }
 }
 function limReveal(it){ if(!it || it.shown) return; it.shown=true; it.el.innerHTML=stimHTML(it.d); }   /* ya se ve que estimulo es */
+function limPreviewOn(){   /* ya han bajado suficientes estimulos: la fila de arriba empieza a mostrar lo que viene */
+  return LIM_TOP_BLACK && (S.descN||0) >= ((S.mode==='limite') ? LIM_PREVIEW_FROM_LIMITE : LIM_PREVIEW_FROM);
+}
 function limPrepare(){   /* durante la cuenta atras: la fila de 3 ya esta, todos en negro */
   S.spawnTo=0;
-  S.q=[]; S.top=[]; S.cur=null; S.spawnN=0; S.zc=10; S.gen=makeGen(S.mode);
+  S.q=[]; S.top=[]; S.cur=null; S.spawnN=0; S.descN=0; S.zc=10; S.gen=makeGen(S.mode);
   $('p2Stim').innerHTML='<div class="p2-stage" id="p2Stage"></div>';
   var i; for(i=0;i<3;i++){ limAddTop(i); }
 }
@@ -880,12 +888,14 @@ function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cu
 function limAdvance(){   /* la fila avanza hacia el centro y entra uno nuevo */
   var i; for(i=0;i<S.top.length;i++){ S.top[i].el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out'; S.top[i].el.style.transform=limSlot(i); }
   if(!LIM_TOP_BLACK && S.top[1]){ limReveal(S.top[1]); }   /* el que pasa al 2.o hueco ya se ve; el nuevo (3.o) entra en negro */
+  if(limPreviewOn()){ S.top.forEach(limReveal); }          /* a partir del estimulo 40 (35 en Limite) se ven los de la fila */
   limAddTop(S.top.length);
   limFrontStart();
 }
 function limDescend(){   /* se le acabo el tiempo al de delante: baja a la pila */
   S.spawnTo=0; if(!S.running) return;
   var it=S.top.shift(); if(!it) return;
+  S.descN=(S.descN||0)+1;
   limReveal(it);                                          /* al bajar se ve que estimulo es */
   if(LIM_TOP_BLACK){ it.frontT=performance.now(); }       /* y la reaccion cuenta desde que baja (se 'activa') */
   it.el.style.zIndex=String(++S.zc);
