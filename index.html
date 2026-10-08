@@ -313,6 +313,7 @@ if('serviceWorker' in navigator){
   /* Modo Limite: los estimulos caen desde arriba y se apilan en su sitio (el nuevo tapa al anterior) */
   .p2-stage{position:relative;width:100%;height:170px;}
   .p2-fall{position:absolute;left:50%;top:7px;margin-left:-78px;animation:p2drop 600ms cubic-bezier(.25,.1,.6,1) both;}
+  .p2-item{position:absolute;left:50%;top:7px;margin-left:-78px;transform-origin:50% 50%;will-change:transform,opacity;pointer-events:none;}
   @keyframes p2drop{from{transform:translateY(calc(-1 * var(--dy,200px)));}to{transform:translateY(0);}}
   .segment button[data-soon]{opacity:.35;cursor:not-allowed;}
   .segment.off, .rank-tabs.off{opacity:.35;pointer-events:none;}
@@ -411,7 +412,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v18</div>
+    <div class="app-ver">v19</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -772,8 +773,8 @@ function infoHTML(mode, stim){
   var html='<div class="info-title">'+names[mode]+' \u00b7 '+(dyn?'Din\u00e1mico':'Est\u00e1tico')+'</div>';
   html+='<div class="info-sub">'+(dyn?'Aguanta todos los est\u00edmulos que puedas.':'Responde a cada est\u00edmulo lo m\u00e1s r\u00e1pido que puedas ('+S.total+' est\u00edmulos).')+(mode==='limite'?' Lo que pulsas depende del est\u00edmulo anterior.':'')+'</div>';
   if(dyn){
-    html+=infoRow(sw('dcha',false), '<b>Los est\u00edmulos caen desde arriba</b> y se colocan en el centro. Cada pocos est\u00edmulos salen <b>m\u00e1s seguidos</b>. La <b>barra</b> marca el tiempo que te queda antes de que salga el siguiente.')
-        +infoRow(sw('arr',false), 'Si vas lento, el nuevo se coloca <b>encima del anterior</b> y puede taparlo. Aun as\u00ed hay que responder <b>en orden</b>: primero el m\u00e1s antiguo.');
+    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os.</b> El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
+        +infoRow(sw('arr',false), '<b>Puedes responder al de delante nada m\u00e1s verlo</b>, sin esperar a que baje: anticiparte da mejores tiempos. Si vas lento, el que baja se coloca <b>encima del anterior</b> y puede taparlo. Hay que responder <b>en orden</b>: primero el m\u00e1s antiguo. La reacci\u00f3n cuenta desde que el est\u00edmulo pasa a ser el de delante.');
   }
   if(mode==='normal'){
     html+=infoRow(sw('izq',false), '<b>Flecha roja</b>: desliza hacia donde apunta (izquierda, derecha, arriba o abajo).')
@@ -803,72 +804,104 @@ function showInfo(){
 }
 function startFromInfo(){ var inf=$('p2info'); if(!inf || !inf.classList.contains('active')) return; runGame(); }
 
-/* ---------- Modo LIMITE ----------
-   Los estimulos (los mismos que en Normal) SALEN SOLOS desde arriba, uno cada LIM_START_MS al principio y cada vez
-   LIM_STEP_MS antes (suelo LIM_MIN_MS), y caen hasta su sitio. El nuevo se coloca ENCIMA del anterior: si vas lento
-   puede taparlo, pero hay que responder EN ORDEN (primero el mas antiguo, S.q[0]). Termina al fallar (o si se acumulan mas de
-   LIM_MAX_PENDING) y el resultado es el numero de estimulos acertados (empate: velocidad de reaccion media).
-   La barra sobre el area de pulsado muestra cuantos estimulos hay pendientes (llena = fin) y el numero de la izquierda
-   cuenta los ensayos. El tiempo de reaccion de cada uno cuenta desde que sale o desde que acabas el anterior (lo que sea mas tarde). */
+/* ---------- Modo DINAMICO (rediseño 2026-10-08) ----------
+   Arriba hay una FILA de 3 estimulos pequeños: el de delante, centrado, y 2 mas un poco hacia la derecha (S.top). El de delante
+   BAJA SOLO cuando se le acaba su tiempo (limInterval) -- cae hasta su sitio creciendo hasta el tamaño normal (como en Estatico) --, los otros 2
+   avanzan hacia el centro y entra uno nuevo detras. Se puede responder al de delante EN CUANTO se ve, sin esperar a que baje; si se acierta antes
+   de que baje desaparece y la fila avanza igual (el siguiente de delante empieza con su tiempo completo). Si se tarda, baja y se queda en la pila
+   (S.q): el siguiente que baje cae ENCIMA y puede taparlo. Se responde EN ORDEN: primero el mas antiguo (la pila, de abajo arriba) y despues la fila.
+   La REACCION de cada estimulo cuenta desde que pasa a ser el de delante (esta 'colocado para bajar'), aunque haya que esperar a contestar a los anteriores.
+   Termina al fallar o si se acumulan mas de LIM_MAX_PENDING en la pila; el resultado es el numero de aciertos (empate: reaccion media).
+   La barra se llena cuando un estimulo pasa a ser el de delante y se vacia hasta que baja. */
+var LIM_SLOT_DX=64;      /* px entre los huecos de la fila (de centro a centro) */
+var LIM_SMALL=0.36;      /* escala de los estimulos de la fila (el anillo de 156 px queda en ~56 px) */
+var LIM_SHIFT_MS=260;    /* los de la fila avanzan hacia el centro */
 function limInterval(n){
   if(n>=LIM_FAST_FROM){ return Math.max(LIM_FAST_MIN_MS, LIM_MIN_MS - LIM_FAST_STEP_MS*Math.floor((n-LIM_FAST_FROM)/LIM_FAST_EVERY)); }
   return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(n/LIM_STEP_EVERY));
-}   /* n = estimulos ya lanzados; devuelve el intervalo hasta el siguiente */
+}   /* n = numero de estimulos que ya han pasado a ser el de delante (contando este); devuelve el tiempo que esta delante antes de bajar */
 function limStop(){
   if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; }
-  S.q=[];
+  S.q=[]; S.top=[]; S.cur=null;
   var p=$('prog'); if(p){ p.style.transition=''; p.style.width='0%'; }   /* la barra vuelve a su comportamiento normal */
 }
-/* La barra se llena al salir un estimulo y se vacia hasta que sale el siguiente: es el tiempo que queda para responder antes de que se superponga. */
 function limBar(ms){
   var p=$('prog'); if(!p) return;
   p.style.transition='none'; p.style.width='100%'; void p.offsetWidth;
   p.style.transition='width '+ms+'ms linear'; p.style.width='0%';
 }
+function limRowY(){   /* desplazamiento vertical (respecto a su sitio final) del centro de la fila de arriba */
+  var st=$('p2Stage').getBoundingClientRect(), top=$('p2Top').getBoundingClientRect();
+  var stageCY=st.top+7+78, rowCY=top.top+Math.min(46, Math.max(28, top.height/2));
+  return Math.round(rowCY-stageCY);
+}
+function limSlot(i){ return 'translate('+(i*LIM_SLOT_DX)+'px,'+limRowY()+'px) scale('+LIM_SMALL+')'; }
+function limAddTop(i){   /* un estimulo nuevo entra por el hueco i de la fila (por la derecha, apareciendo) */
+  var d=S.gen(), el=document.createElement('div'); el.className='p2-item';
+  el.innerHTML=stimHTML(d);
+  el.style.transition='none'; el.style.opacity='0'; el.style.transform='translate('+(i*LIM_SLOT_DX+46)+'px,'+limRowY()+'px) scale('+LIM_SMALL+')';
+  $('p2Stage').appendChild(el); void el.offsetWidth;
+  el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out, opacity '+LIM_SHIFT_MS+'ms ease-out'; el.style.opacity='1'; el.style.transform=limSlot(i);
+  S.top.push({d:d, el:el, frontT:0});
+}
 function limStart(){
   S.spawnTo=0; if(!S.running) return;
-  S.q=[]; S.spawnN=0; S.lastCommitT=performance.now(); S.zc=10; S.lastType=-1;
-  S.gen=makeGen(S.mode);   /* Limite-Extremo: mismos estimulos relativos (+1, -1, R...) en el orden en que salen = orden en que se responden */
+  S.q=[]; S.top=[]; S.cur=null; S.spawnN=0; S.zc=10; S.gen=makeGen(S.mode);
   $('p2Stim').innerHTML='<div class="p2-stage" id="p2Stage"></div>';
-  limSpawn();
+  var i; for(i=0;i<3;i++){ limAddTop(i); }
+  limFrontStart(); limArm();
 }
-function limSpawn(){
+function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cuando se acabe */
+  var fr=S.top[0]; if(!fr) return;
+  fr.frontT=performance.now(); S.spawnN++;
+  var ms=limInterval(S.spawnN);
+  limBar(ms);
+  if(S.spawnTo){ clearTimeout(S.spawnTo); }
+  S.spawnTo=setTimeout(limDescend, ms);
+}
+function limAdvance(){   /* la fila avanza hacia el centro y entra uno nuevo */
+  var i; for(i=0;i<S.top.length;i++){ S.top[i].el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out'; S.top[i].el.style.transform=limSlot(i); }
+  limAddTop(S.top.length);
+  limFrontStart();
+}
+function limDescend(){   /* se le acabo el tiempo al de delante: baja a la pila */
   S.spawnTo=0; if(!S.running) return;
-  var d=S.gen(), now=performance.now();
-  var sb=$('stimBox').getBoundingClientRect(), top=$('p2Top').getBoundingClientRect();
-  var dy=Math.max(60, Math.round((sb.top + (sb.height-156)/2) - top.top));   /* de lo alto del hueco hasta su sitio */
-  var el=document.createElement('div'); el.className='p2-fall';
-  el.style.cssText='--dy:'+dy+'px;z-index:'+(++S.zc)+';animation-duration:'+LIM_DROP_MS+'ms';
-  el.innerHTML=stimHTML(d);
-  $('p2Stage').appendChild(el);
-  S.q.push({d:d, spawnT:now, el:el}); S.spawnN++;
+  var it=S.top.shift(); if(!it) return;
+  it.el.style.zIndex=String(++S.zc);
+  it.el.style.transition='transform '+LIM_DROP_MS+'ms cubic-bezier(.25,.1,.6,1)'; it.el.style.transform='translate(0px,0px) scale(1)';
+  S.q.push(it);
   if(S.q.length>LIM_MAX_PENDING){ failGame('overflow'); return; }
-
-  if(S.q.length===1){ limArm(); }
-  var nextMs=limInterval(S.spawnN);
-  limBar(nextMs);
-  S.spawnTo=setTimeout(limSpawn, nextMs);
+  limAdvance();
 }
-function limArm(){   /* el mas antiguo pasa a ser el objetivo */
-  var q0=S.q[0];
+function limArm(){   /* el mas antiguo (la pila primero, despues el de delante) pasa a ser el objetivo */
+  var t=S.q[0] || S.top[0];
   clearG();
-  if(!q0){ S.stimVisible=false; return; }
-  S.g={d:q0.d, phase:'wait', groups:0, downs:0, grpT:0, firstT:0, rt:0, ptr:null, sx:0, sy:0, done:false, sync:0, gap:0, confirm:0};
+  if(!t){ S.stimVisible=false; S.cur=null; return; }
+  S.cur=t;
+  S.g={d:t.d, phase:'wait', groups:0, downs:0, grpT:0, firstT:0, rt:0, ptr:null, sx:0, sy:0, done:false, sync:0, gap:0, confirm:0};
   S.stimVisible=true; S.armed=false;
-  S.trialT0=q0.spawnT;   /* la reaccion cuenta desde que SALE el estimulo (aunque haya que esperar a contestar a los anteriores) */
+  S.trialT0=t.frontT;   /* la reaccion cuenta desde que pasa a ser el de delante (aunque haya que esperar a contestar a los anteriores) */
 }
 function limCommit(){
   var g=S.g; if(!g || !S.running) return;
-  var rt=g.rt;
+  var rt=g.rt, it=S.cur;
   clearG();
   sndSymbol();
-  var done=S.q.shift(); if(done && done.el && done.el.parentNode){ done.el.parentNode.removeChild(done.el); }
-  S.times.push(rt); S.trial++; S.lastCommitT=performance.now();
+  var wasFront=false;
+  if(it){
+    if(S.q[0]===it){ S.q.shift(); }
+    else if(S.top[0]===it){ S.top.shift(); wasFront=true; }
+    var el=it.el; if(el && el.parentNode){
+      if(wasFront){ el.style.transition='transform 160ms ease-in, opacity 160ms ease-in'; el.style.opacity='0'; el.style.transform=limSlot(0)+' scale(0.5)'; setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 190); }
+      else { el.parentNode.removeChild(el); }
+    }
+  }
+  S.times.push(rt); S.trial++;
   $('stLast').textContent=String(Math.round(rt));
   updateStats();
   $('trialCount').textContent=String(S.trial+1);
-
   S.stimVisible=false;
+  if(wasFront){ limAdvance(); }   /* contestado antes de bajar: la fila avanza y el siguiente de delante empieza su tiempo completo */
   limArm();
 }
 function finishLimite(msg){
