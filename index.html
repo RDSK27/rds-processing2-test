@@ -414,7 +414,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v21</div>
+    <div class="app-ver">v22</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -779,8 +779,8 @@ function infoHTML(mode, stim){
   var html='<div class="info-title">'+names[mode]+' \u00b7 '+(dyn?'Din\u00e1mico':'Est\u00e1tico')+'</div>';
   html+='<div class="info-sub">'+(dyn?'Aguanta todos los est\u00edmulos que puedas.':'Responde a cada est\u00edmulo lo m\u00e1s r\u00e1pido que puedas ('+S.total+' est\u00edmulos).')+(mode==='limite'?' Lo que pulsas depende del est\u00edmulo anterior.':'')+'</div>';
   if(dyn){
-    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os</b> (el tercero siempre va <b>en negro</b>: no se ve cu\u00e1l es hasta que avanza). El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
-        +infoRow(sw('arr',false), '<b>Puedes responder al de delante nada m\u00e1s verlo</b>, sin esperar a que baje: anticiparte da mejores tiempos. Si vas lento, el que baja se coloca <b>encima del anterior</b> y puede taparlo. Hay que responder <b>en orden</b>: primero el m\u00e1s antiguo. La reacci\u00f3n cuenta desde que el est\u00edmulo pasa a ser el de delante.');
+    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os, <u>todos en negro</u></b>: sirven de aviso, no se ven ni se pueden responder. El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y <b>al bajar se descubre</b> y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
+        +infoRow(sw('arr',false), '<b>Responde cuando baja</b>, ya con el est\u00edmulo a la vista. Si vas lento, el que baja se coloca <b>encima del anterior</b> y puede taparlo. Hay que responder <b>en orden</b>: primero el m\u00e1s antiguo. La reacci\u00f3n cuenta desde que el est\u00edmulo empieza a bajar.');
   }
   if(mode==='normal'){
     html+=infoRow(sw('izq',false), '<b>Flecha roja</b>: desliza hacia donde apunta (izquierda, derecha, arriba o abajo).')
@@ -819,6 +819,7 @@ function startFromInfo(){ var inf=$('p2info'); if(!inf || !inf.classList.contain
    La REACCION de cada estimulo cuenta desde que pasa a ser el de delante (esta 'colocado para bajar'), aunque haya que esperar a contestar a los anteriores.
    Termina al fallar o si se acumulan mas de LIM_MAX_PENDING en la pila; el resultado es el numero de aciertos (empate: reaccion media).
    La barra se llena cuando un estimulo pasa a ser el de delante y se vacia hasta que baja. */
+var LIM_TOP_BLACK=true;  /* PRUEBA (v22): true = los de la fila de arriba van TODOS en negro y no se pueden responder; se ven (y cuentan) cuando BAJAN. false = como en v21 */
 var LIM_SLOT_DX=64;      /* px entre los huecos de la fila (de centro a centro) */
 var LIM_SMALL=0.36;      /* escala de los estimulos de la fila (el anillo de 156 px queda en ~56 px) */
 var LIM_SHIFT_MS=260;    /* los de la fila avanzan hacia el centro */
@@ -861,7 +862,7 @@ function limPrepare(){   /* durante la cuenta atras: la fila de 3 ya esta, todos
 function limStart(){   /* acaba la cuenta atras: el de delante y el siguiente se ven; el tercero sigue en negro */
   S.spawnTo=0; if(!S.running) return;
   if(!S.top || S.top.length<3 || !$('p2Stage')){ limPrepare(); }
-  limReveal(S.top[0]); limReveal(S.top[1]);
+  if(!LIM_TOP_BLACK){ limReveal(S.top[0]); limReveal(S.top[1]); }
   limFrontStart(); limArm();
 }
 function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cuando se acabe */
@@ -874,21 +875,24 @@ function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cu
 }
 function limAdvance(){   /* la fila avanza hacia el centro y entra uno nuevo */
   var i; for(i=0;i<S.top.length;i++){ S.top[i].el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out'; S.top[i].el.style.transform=limSlot(i); }
-  if(S.top[1]){ limReveal(S.top[1]); }   /* el que pasa al 2.o hueco ya se ve; el nuevo (3.o) entra en negro */
+  if(!LIM_TOP_BLACK && S.top[1]){ limReveal(S.top[1]); }   /* el que pasa al 2.o hueco ya se ve; el nuevo (3.o) entra en negro */
   limAddTop(S.top.length);
   limFrontStart();
 }
 function limDescend(){   /* se le acabo el tiempo al de delante: baja a la pila */
   S.spawnTo=0; if(!S.running) return;
   var it=S.top.shift(); if(!it) return;
+  limReveal(it);                                          /* al bajar se ve que estimulo es */
+  if(LIM_TOP_BLACK){ it.frontT=performance.now(); }       /* y la reaccion cuenta desde que baja (se 'activa') */
   it.el.style.zIndex=String(++S.zc);
   it.el.style.transition='transform '+LIM_DROP_MS+'ms cubic-bezier(.25,.1,.6,1)'; it.el.style.transform='translate(0px,0px) scale(1)';
   S.q.push(it);
   if(S.q.length>LIM_MAX_PENDING){ failGame('overflow'); return; }
   limAdvance();
+  if(LIM_TOP_BLACK && !S.cur){ limArm(); }                 /* no habia objetivo: el que acaba de bajar pasa a serlo */
 }
 function limArm(){   /* el mas antiguo (la pila primero, despues el de delante) pasa a ser el objetivo */
-  var t=S.q[0] || S.top[0];
+  var t=S.q[0] || (LIM_TOP_BLACK ? null : S.top[0]);
   clearG();
   if(!t){ S.stimVisible=false; S.cur=null; return; }
   S.cur=t;
@@ -1006,7 +1010,7 @@ function padDown(e, others){
   if(!S.running || S.lock) return;
   var t=evT(e);
   if(S.confirming){ var gc=S.g; failGame((gc && t-gc.grpT<=FINGER_SYNC) ? 'extrafinger' : 'extra'); return; }   /* un toque (o dedo) mas durante la ventana de confirmacion */
-  if(!S.stimVisible){ failGame('early'); return; }            /* antes de que salga el estimulo */
+  if(!S.stimVisible){ if(S.stim==='dinamico' && LIM_TOP_BLACK) return; failGame('early'); return; }            /* antes de que salga el estimulo */
   var g=S.g; if(!g) return;
   var d=g.d;
   if(g.phase==='wait'){                                        /* PRIMER toque: de aqui sale el tiempo de reaccion */
