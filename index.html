@@ -411,7 +411,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v17</div>
+    <div class="app-ver">v18</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -591,7 +591,11 @@ var LIM_START_MS=1000;   /* ms entre el 1o y el 2o estimulo */
 var LIM_STEP_MS=50;      /* el intervalo baja 50 ms ... */
 var LIM_STEP_EVERY=5;    /* ... cada 5 estimulos (los 5 primeros a LIM_START_MS, los 5 siguientes a -50 ms, etc.) */
 var LIM_CONFIRM_MS=200;  /* ms de margen tras la ultima pulsacion de una respuesta para detectar un toque de mas (solo en Limite; en Normal/Extremo es TAP_GAP) */
-var LIM_MIN_MS=300;      /* suelo del intervalo (sin suelo llegaria a 0) */
+var LIM_MIN_MS=300;      /* suelo de la 1a fase (se alcanza en el estimulo 70) */
+var LIM_FAST_FROM=70;    /* 2a fase (2026-10-08): a partir del estimulo 70 ... */
+var LIM_FAST_STEP_MS=25; /* ... el intervalo baja 25 ms ... */
+var LIM_FAST_EVERY=10;   /* ... cada 10 estimulos ... */
+var LIM_FAST_MIN_MS=150; /* ... hasta un suelo de 150 ms (se alcanza en el estimulo 130) */
 var LIM_DROP_MS=600;     /* duracion de la caida desde arriba hasta su sitio */
 var LIM_MAX_PENDING=6;   /* si se acumulan mas de 6 sin responder, fin del ejercicio */
 
@@ -806,7 +810,10 @@ function startFromInfo(){ var inf=$('p2info'); if(!inf || !inf.classList.contain
    LIM_MAX_PENDING) y el resultado es el numero de estimulos acertados (empate: velocidad de reaccion media).
    La barra sobre el area de pulsado muestra cuantos estimulos hay pendientes (llena = fin) y el numero de la izquierda
    cuenta los ensayos. El tiempo de reaccion de cada uno cuenta desde que sale o desde que acabas el anterior (lo que sea mas tarde). */
-function limInterval(n){ return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(n/LIM_STEP_EVERY)); }   /* n = estimulos ya lanzados; devuelve el intervalo hasta el siguiente */
+function limInterval(n){
+  if(n>=LIM_FAST_FROM){ return Math.max(LIM_FAST_MIN_MS, LIM_MIN_MS - LIM_FAST_STEP_MS*Math.floor((n-LIM_FAST_FROM)/LIM_FAST_EVERY)); }
+  return Math.max(LIM_MIN_MS, LIM_START_MS - LIM_STEP_MS*Math.floor(n/LIM_STEP_EVERY));
+}   /* n = estimulos ya lanzados; devuelve el intervalo hasta el siguiente */
 function limStop(){
   if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; }
   S.q=[];
