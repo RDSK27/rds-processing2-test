@@ -190,6 +190,8 @@ if('serviceWorker' in navigator){
   .stim-box.azul{background:var(--azul);}
   .stim-box.blanco{background:#fff;border:2px solid var(--negro);}
   .stim-box.negro{background:var(--negro);}
+  #game.dyn .stim-box{position:relative;}
+  #game.dyn .stim-glyph{position:absolute;left:0;right:0;top:50%;margin-top:-32px;text-align:center;z-index:30;pointer-events:none;}   /* Dinamico: el digito se superpone, no desplaza el escenario (la fila no se mueve al arrancar) */
   .stim-glyph{color:#fff;font-weight:900;font-size:64px;line-height:1;-webkit-text-stroke:2px var(--negro);text-stroke:2px var(--negro);paint-order:stroke fill;}
   @keyframes rdsblink { 0%,55%{opacity:1;} 56%,100%{opacity:0.12;} }
   #game .stat.main .v.blink{ animation:rdsblink 0.9s steps(1,end) infinite; }
@@ -412,7 +414,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v20</div>
+    <div class="app-ver">v21</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -585,7 +587,9 @@ var S={mode:'normal',stim:'estatico',total:25,name:'RDS',sport:'',trial:0,times:
 /* Tiempos de los gestos (Roberto, 2026-10-04). El tiempo que cuenta es el del PRIMER toque desde que sale el estimulo. */
 var TAP_GAP=250;       /* ms: el siguiente toque de una serie ('2' o '3' toques) tiene que empezar a menos de 250 ms del anterior (era 150; subido 100 ms el 2026-10-04) */
 var FINGER_SYNC=50;    /* ms: con 2 dedos, el segundo tiene que tocar a menos de 50 ms del primero */
-var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento (casi horizontal) */
+var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento. Direccion = eje dominante del recorrido (vale tambien en diagonal) */
+var SWIPE_UP_MIN=24;   /* px: si el dedo se levanta antes de SWIPE_MIN, con este recorrido ya se acepta (deslizamientos cortos y rapidos) */
+function swipeDir(dx,dy){ return (Math.abs(dx)>=Math.abs(dy)) ? (dx<0?'izq':'dcha') : (dy<0?'arr':'abj'); }
 var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing; NO se aplica en Limite) */
 /* Modo LIMITE (2026-10-04) -- valores iniciales, Roberto quiere ajustarlos tras probarlo: */
 var LIM_START_MS=750;    /* ms entre el 1o y el 2o estimulo */
@@ -661,6 +665,7 @@ function runGame(){
   if(S.countIv){ clearInterval(S.countIv); S.countIv=0; }
   if(S.coverTo){ clearTimeout(S.coverTo); S.coverTo=0; }
   show('game');
+  $('game').classList.toggle('dyn', S.stim==='dinamico');
   S.trial=0; S.times=[]; S.running=true; S.lock=false;
   S.stimVisible=false; S.armed=false; S.lastAct=0;
   S.seq=(S.stim==='dinamico') ? [] : buildSeq(S.mode, S.total);
@@ -1043,16 +1048,20 @@ function padDown(e, others){
 }
 function padMove(e){
   var g=S.g; if(!S.running || !g || g.d.kind!=='swipe' || g.ptr!==e.pointerId || g.done) return;
-  var dx=e.clientX-g.sx, dy=e.clientY-g.sy, ax=Math.abs(dx), ay=Math.abs(dy), dir=null;
-  if(ax>=SWIPE_MIN && ax>=ay*1.2){ dir=(dx<0?'izq':'dcha'); }          /* casi horizontal */
-  else if(ay>=SWIPE_MIN && ay>=ax*1.2){ dir=(dy<0?'arr':'abj'); }      /* casi vertical */
-  if(!dir) return;
+  var dx=e.clientX-g.sx, dy=e.clientY-g.sy;
+  if(Math.sqrt(dx*dx+dy*dy)<SWIPE_MIN) return;
   g.done=true;
-  if(dir===g.d.dir){ commitTrial(); } else { failGame('wrongdir'); }
+  if(swipeDir(dx,dy)===g.d.dir){ commitTrial(); } else { failGame('wrongdir'); }
 }
 function padUp(e){
   var g=S.g; if(!S.running || !g || g.d.kind!=='swipe' || g.ptr!==e.pointerId || g.done) return;
-  g.done=true; failGame('noswipe');                              /* levanto el dedo sin deslizar lo suficiente */
+  g.done=true;
+  var dx=e.clientX-g.sx, dy=e.clientY-g.sy;
+  if(e.type==='pointerup' && Math.sqrt(dx*dx+dy*dy)>=SWIPE_UP_MIN){   /* levanto el dedo algo antes de SWIPE_MIN: se acepta por la direccion */
+    if(swipeDir(dx,dy)===g.d.dir){ commitTrial(); } else { failGame('wrongdir'); }
+    return;
+  }
+  failGame('noswipe');                                          /* levanto el dedo sin deslizar lo suficiente */
 }
 (function(){
   var pad=$('pad');
