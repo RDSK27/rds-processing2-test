@@ -414,7 +414,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v22</div>
+    <div class="app-ver">v23</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -862,8 +862,9 @@ function limPrepare(){   /* durante la cuenta atras: la fila de 3 ya esta, todos
 function limStart(){   /* acaba la cuenta atras: el de delante y el siguiente se ven; el tercero sigue en negro */
   S.spawnTo=0; if(!S.running) return;
   if(!S.top || S.top.length<3 || !$('p2Stage')){ limPrepare(); }
-  if(!LIM_TOP_BLACK){ limReveal(S.top[0]); limReveal(S.top[1]); }
-  limFrontStart(); limArm();
+  if(!LIM_TOP_BLACK){ limReveal(S.top[0]); limReveal(S.top[1]); limFrontStart(); limArm(); return; }
+  /* v23: al acabar la cuenta atras el primero cae YA (sin esperar su tiempo); el siguiente empieza su cuenta (LIM_START_MS) a la vez */
+  limFrontStart(); if(S.spawnTo){ clearTimeout(S.spawnTo); S.spawnTo=0; } limDescend();
 }
 function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cuando se acabe */
   var fr=S.top[0]; if(!fr) return;
