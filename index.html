@@ -412,7 +412,7 @@ if('serviceWorker' in navigator){
       </select>
     </div>
   </div>
-    <div class="app-ver">v19</div>
+    <div class="app-ver">v20</div>
     <div id="pending-sync" class="pending-sync"></div>
     </div>
 
@@ -588,10 +588,10 @@ var FINGER_SYNC=50;    /* ms: con 2 dedos, el segundo tiene que tocar a menos de
 var SWIPE_MIN=40;      /* px: recorrido minimo para contar como deslizamiento (casi horizontal) */
 var GUESS_MIN=200;     /* ms: por debajo se considera adivinar (igual que en Processing; NO se aplica en Limite) */
 /* Modo LIMITE (2026-10-04) -- valores iniciales, Roberto quiere ajustarlos tras probarlo: */
-var LIM_START_MS=1000;   /* ms entre el 1o y el 2o estimulo */
+var LIM_START_MS=750;    /* ms entre el 1o y el 2o estimulo */
 var LIM_STEP_MS=50;      /* el intervalo baja 50 ms ... */
 var LIM_STEP_EVERY=5;    /* ... cada 5 estimulos (los 5 primeros a LIM_START_MS, los 5 siguientes a -50 ms, etc.) */
-var LIM_CONFIRM_MS=200;  /* ms de margen tras la ultima pulsacion de una respuesta para detectar un toque de mas (solo en Limite; en Normal/Extremo es TAP_GAP) */
+var LIM_CONFIRM_MS=0;    /* ms de margen tras la ultima pulsacion de una respuesta para detectar un toque de mas (solo en Limite; en Normal/Extremo es TAP_GAP) */
 var LIM_MIN_MS=300;      /* suelo de la 1a fase (se alcanza en el estimulo 70) */
 var LIM_FAST_FROM=70;    /* 2a fase (2026-10-08): a partir del estimulo 70 ... */
 var LIM_FAST_STEP_MS=25; /* ... el intervalo baja 25 ms ... */
@@ -665,6 +665,7 @@ function runGame(){
   S.stimVisible=false; S.armed=false; S.lastAct=0;
   S.seq=(S.stim==='dinamico') ? [] : buildSeq(S.mode, S.total);
   hideStim();
+  if(S.stim==='dinamico'){ limPrepare(); }   /* Dinamico: la fila de 3 (en negro) ya esta durante la cuenta atras */
   $('stLast').textContent='--';
   $('stAvg').classList.remove('blink');
   S.mediaCell='stAvg';
@@ -773,7 +774,7 @@ function infoHTML(mode, stim){
   var html='<div class="info-title">'+names[mode]+' \u00b7 '+(dyn?'Din\u00e1mico':'Est\u00e1tico')+'</div>';
   html+='<div class="info-sub">'+(dyn?'Aguanta todos los est\u00edmulos que puedas.':'Responde a cada est\u00edmulo lo m\u00e1s r\u00e1pido que puedas ('+S.total+' est\u00edmulos).')+(mode==='limite'?' Lo que pulsas depende del est\u00edmulo anterior.':'')+'</div>';
   if(dyn){
-    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os.</b> El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
+    html+=infoRow(sw('dcha',false), '<b>Arriba hay una fila de 3 est\u00edmulos peque\u00f1os</b> (el tercero siempre va <b>en negro</b>: no se ve cu\u00e1l es hasta que avanza). El de delante (en el centro) <b>baja solo</b> cuando se le acaba el tiempo y crece hasta su sitio; los otros avanzan y entra uno nuevo. Cada pocos est\u00edmulos baja <b>m\u00e1s r\u00e1pido</b>. La <b>barra</b> marca el tiempo que le queda antes de bajar.')
         +infoRow(sw('arr',false), '<b>Puedes responder al de delante nada m\u00e1s verlo</b>, sin esperar a que baje: anticiparte da mejores tiempos. Si vas lento, el que baja se coloca <b>encima del anterior</b> y puede taparlo. Hay que responder <b>en orden</b>: primero el m\u00e1s antiguo. La reacci\u00f3n cuenta desde que el est\u00edmulo pasa a ser el de delante.');
   }
   if(mode==='normal'){
@@ -836,19 +837,26 @@ function limRowY(){   /* desplazamiento vertical (respecto a su sitio final) del
   return Math.round(rowCY-stageCY);
 }
 function limSlot(i){ return 'translate('+(i*LIM_SLOT_DX)+'px,'+limRowY()+'px) scale('+LIM_SMALL+')'; }
-function limAddTop(i){   /* un estimulo nuevo entra por el hueco i de la fila (por la derecha, apareciendo) */
+var LIM_BLANK='<div class="p2-ring"></div>';   /* circulo negro sin nada dentro: lo que aun no se ve */
+function limAddTop(i){   /* un estimulo nuevo entra por el hueco i de la fila (por la derecha, apareciendo) y siempre entra EN NEGRO */
   var d=S.gen(), el=document.createElement('div'); el.className='p2-item';
-  el.innerHTML=stimHTML(d);
+  el.innerHTML=LIM_BLANK;
   el.style.transition='none'; el.style.opacity='0'; el.style.transform='translate('+(i*LIM_SLOT_DX+46)+'px,'+limRowY()+'px) scale('+LIM_SMALL+')';
   $('p2Stage').appendChild(el); void el.offsetWidth;
   el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out, opacity '+LIM_SHIFT_MS+'ms ease-out'; el.style.opacity='1'; el.style.transform=limSlot(i);
-  S.top.push({d:d, el:el, frontT:0});
+  S.top.push({d:d, el:el, frontT:0, shown:false});
 }
-function limStart(){
-  S.spawnTo=0; if(!S.running) return;
+function limReveal(it){ if(!it || it.shown) return; it.shown=true; it.el.innerHTML=stimHTML(it.d); }   /* ya se ve que estimulo es */
+function limPrepare(){   /* durante la cuenta atras: la fila de 3 ya esta, todos en negro */
+  S.spawnTo=0;
   S.q=[]; S.top=[]; S.cur=null; S.spawnN=0; S.zc=10; S.gen=makeGen(S.mode);
   $('p2Stim').innerHTML='<div class="p2-stage" id="p2Stage"></div>';
   var i; for(i=0;i<3;i++){ limAddTop(i); }
+}
+function limStart(){   /* acaba la cuenta atras: el de delante y el siguiente se ven; el tercero sigue en negro */
+  S.spawnTo=0; if(!S.running) return;
+  if(!S.top || S.top.length<3 || !$('p2Stage')){ limPrepare(); }
+  limReveal(S.top[0]); limReveal(S.top[1]);
   limFrontStart(); limArm();
 }
 function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cuando se acabe */
@@ -861,6 +869,7 @@ function limFrontStart(){   /* el estimulo de delante empieza su cuenta: baja cu
 }
 function limAdvance(){   /* la fila avanza hacia el centro y entra uno nuevo */
   var i; for(i=0;i<S.top.length;i++){ S.top[i].el.style.transition='transform '+LIM_SHIFT_MS+'ms ease-out'; S.top[i].el.style.transform=limSlot(i); }
+  if(S.top[1]){ limReveal(S.top[1]); }   /* el que pasa al 2.o hueco ya se ve; el nuevo (3.o) entra en negro */
   limAddTop(S.top.length);
   limFrontStart();
 }
@@ -967,7 +976,7 @@ function failGame(kind, rt){
 
 /* ---------- Motor de gestos (Pointer Events: toques, 2 dedos y deslizamiento) ---------- */
 var padDownAt={};   /* pointerId -> instante en que se apoyo ese dedo; se borra al levantarlo (o si lleva >3 s, por si se perdio el evento) */
-function padFingersDown(now){ var n=0, k; for(k in padDownAt){ if(now-padDownAt[k]>3000){ delete padDownAt[k]; } else { n++; } } return n; }
+function padFingersDown(now, win){ var n=0, k, age; for(k in padDownAt){ age=now-padDownAt[k]; if(age>3000){ delete padDownAt[k]; } else if(!win || age<=win){ n++; } } return n; }   /* win: solo cuenta los dedos puestos hace <= win ms (Dinamico: los de la respuesta anterior no cuentan) */
 function evT(e){ var t=e.timeStamp; return (t && t>0) ? t : performance.now(); }
 function clearG(){
   var g=S.g;
@@ -1022,8 +1031,11 @@ function padDown(e, others){
     g.groups++; g.downs=0;
     var wait=Math.max(0, g.grpT+TAP_GAP-performance.now());
     if(g.groups>=d.taps){                                       /* ya estan todos: se espera TAP_GAP por si llega uno de mas */
+      if(S.stim==='dinamico' && LIM_CONFIRM_MS<=0){ commitTrial(); }   /* Dinamico: respuesta completa = aceptada al momento (se puede encadenar la siguiente sin esperar) */
+      else {
       S.confirming=true;
       g.confirm=setTimeout(function(){ g.confirm=0; if(S.g===g) commitTrial(); }, Math.max(0, g.grpT+(S.stim==='dinamico'?LIM_CONFIRM_MS:TAP_GAP)-performance.now()));
+      }
     } else {                                                    /* falta alguno: tiene que llegar antes de TAP_GAP */
       g.gap=setTimeout(function(){ g.gap=0; if(S.g===g) failGame('gap'); }, wait);
     }
@@ -1044,7 +1056,7 @@ function padUp(e){
 }
 (function(){
   var pad=$('pad');
-  pad.addEventListener('pointerdown', function(e){ if(e.cancelable) e.preventDefault(); try{ pad.setPointerCapture(e.pointerId); }catch(_){} var now=performance.now(), others=padFingersDown(now); padDownAt[e.pointerId]=now; padDown(e, others); });
+  pad.addEventListener('pointerdown', function(e){ if(e.cancelable) e.preventDefault(); try{ pad.setPointerCapture(e.pointerId); }catch(_){} var now=performance.now(), others=padFingersDown(now, S.stim==='dinamico'?FINGER_SYNC:0); padDownAt[e.pointerId]=now; padDown(e, others); });
   pad.addEventListener('pointermove', padMove);
   pad.addEventListener('pointerup', function(e){ delete padDownAt[e.pointerId]; padUp(e); });
   pad.addEventListener('pointercancel', function(e){ delete padDownAt[e.pointerId]; padUp(e); });
