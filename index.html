@@ -109,6 +109,44 @@ if('serviceWorker' in navigator){
   }
   .segment button:last-child{border-right:0;}
   .segment button.sel{background:var(--rojo);color:#fff;text-shadow:none;}
+  .segment button.x2on{background:#F5C400;color:#111;text-shadow:none;}
+  .segment button.x2-off{opacity:.35;pointer-events:none;}
+  /* ===== modo x2 (dos jugadores) ===== */
+  body.x2-active header{display:none;}
+  #x2{background:#fff;touch-action:none;-webkit-user-select:none;user-select:none;}
+  .x2-zone{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:8px 12px 10px;box-sizing:border-box;background:#fff;}
+  .x2-top{transform:rotate(180deg);}
+  .x2-info{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 4px;flex:none;font-family:Arial,sans-serif;font-weight:900;white-space:nowrap;}
+  .x2-pts{font-size:28px;line-height:1.15;color:var(--rojo);}
+  .x2-pts.x2-blink{animation:x2blink .8s steps(2,jump-none) infinite;}
+  @keyframes x2blink{from{opacity:1;}to{opacity:.12;}}
+  .x2-gm,.x2-cu{font-size:21px;color:#111;}
+  .x2-area{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;}
+  .x2-press{flex:1;min-height:0;background:#111;border-radius:8px;touch-action:none;-webkit-tap-highlight-color:transparent;}
+  .x2-press:active{background:#2c2c2c;}
+  .x2-flash{position:absolute;left:0;right:0;bottom:12px;text-align:center;font:900 17px Arial,sans-serif;color:#fff;text-transform:uppercase;pointer-events:none;}
+  .x2-panel{touch-action:pan-y;position:absolute;inset:0;z-index:2;display:none;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:10px 14px;box-sizing:border-box;background:#fff;border:2px solid #111;border-radius:8px;text-align:center;overflow:auto;font-family:Arial,sans-serif;color:#111;}
+  .x2-panel.on{display:flex;}
+  .x2-pt{font-size:21px;font-weight:900;line-height:1.15;color:var(--rojo);}
+  .x2-pr{font-size:15px;font-weight:700;line-height:1.3;}
+  .x2-rules{font-size:13px;font-weight:600;line-height:1.25;}
+  .x2-pbs{display:flex;gap:10px;}
+  .x2-bt{min-width:120px;padding:12px 16px;background:var(--rojo);color:#fff;border:0;border-radius:6px;font:900 15px Arial,sans-serif;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;}
+  .x2-bt.x2-sec{background:#111;}
+  .x2-bt:disabled{background:#8a8a8a;cursor:default;}
+  @media (max-height:700px){ .x2-panel{gap:6px;padding:6px 12px;} }
+  @media (max-height:620px){ .x2-panel{gap:3px;padding:2px 10px;} .x2-pt{font-size:18px;} .x2-pr{font-size:13px;line-height:1.2;} .x2-rules{font-size:11px;line-height:1.15;} .x2-bt{min-width:104px;padding:9px 12px;font-size:14px;} }
+  .x2-mid{display:flex;align-items:center;justify-content:center;position:relative;flex:none;background:#111;border-top:3px solid #b03020;border-bottom:3px solid #b03020;padding:4px 0;box-sizing:border-box;}
+  /* el circulo de Processing 2, mas pequeno: la banda es algo mas alta para que se vean bien las flechas verticales */
+  #x2Stim{width:84px;height:84px;border-radius:50%;background:var(--negro);border:3px solid var(--rojo);box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:5px;}
+  #x2Stim.x2-lights{background:#fff;}
+  #x2Stim .x2-h svg{width:60px;height:38px;}
+  #x2Stim .x2-v svg{width:38px;height:60px;}
+  .x2-dot{display:block;border-radius:50%;background:var(--rojo);border:3px solid #fff;box-sizing:border-box;}
+  .x2-dot1{width:46px;height:46px;}
+  .x2-dot2{width:30px;height:30px;}
+  .x2-lt{display:block;width:18px;height:18px;border-radius:50%;background:#d8281c;box-shadow:inset 0 2px 4px rgba(255,255,255,.35),0 0 8px rgba(216,40,28,.7);}
+  #x2Stop{position:absolute;right:12px;top:50%;margin-top:-20px;width:40px;height:40px;padding:0;border-radius:50%;border:2px solid #fff;background:#b03020;color:#fff;font:900 20px Arial,sans-serif;line-height:1;cursor:pointer;}
   #segEstimulo,#segEnsayos{margin-top:0;}
 
   /* ---------- Acciones (mas pequenas y estrechas, como en la referencia) ---------- */
@@ -357,6 +395,7 @@ if('serviceWorker' in navigator){
       <button class="sel" data-v="normal">Normal</button>
       <button data-v="extremo">Extremo</button>
       <button data-v="limite">L&#237;mite</button>
+      <button data-v="x2">x2</button>
     </div>
 
     <div class="segment" id="segEstimulo">
@@ -379,7 +418,7 @@ if('serviceWorker' in navigator){
           <button class="start-btn rank-btn" ontouchend="event.stopPropagation();" onclick="showRanking()" aria-label="Ranking"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 13.5v7.5M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 4H4v2a3 3 0 0 0 3 3M17 4h3v2a3 3 0 0 1-3 3"/></svg></button>
         </div>
       </div>
-  <div class="app-ver" style="margin-top:6px;padding-top:0;">v30</div>
+  <div class="app-ver" style="margin-top:6px;padding-top:0;">v31</div>
   <div id="user-name-bar" style="margin-top:8px;">
     <div style="display:flex;width:200px;gap:0;margin:0 auto;">
       <input id="user-ini-input" type="text" maxlength="3" placeholder="INI"
@@ -447,6 +486,29 @@ if('serviceWorker' in navigator){
     <button class="game-ctrl-btn" onclick="goHome()">&#8592; Inicio</button>
     <button class="game-ctrl-btn" style="border-right:none;border-left:1px solid #333;" onclick="repeatGame()">&#8634; Repetir</button>
   </div>
+  </section>
+
+  <section id="x2" class="screen">
+    <div class="x2-zone x2-top" id="x2z1">
+      <div class="x2-info"><span class="x2-pts"></span><span class="x2-gm"></span><span class="x2-cu"></span></div>
+      <div class="x2-area">
+        <div class="x2-press" data-p="1"></div>
+        <div class="x2-flash"></div>
+        <div class="x2-panel"></div>
+      </div>
+    </div>
+    <div class="x2-mid">
+      <div id="x2Stim"></div>
+      <button id="x2Stop" type="button" aria-label="Parar">&#10005;</button>
+    </div>
+    <div class="x2-zone x2-bot" id="x2z0">
+      <div class="x2-info"><span class="x2-pts"></span><span class="x2-gm"></span><span class="x2-cu"></span></div>
+      <div class="x2-area">
+        <div class="x2-press" data-p="0"></div>
+        <div class="x2-flash"></div>
+        <div class="x2-panel"></div>
+      </div>
+    </div>
   </section>
 
   <section id="result" class="screen">
@@ -546,7 +608,7 @@ var SYMS = [["circle","cross"],["circle","dot"],["circle","hline"],["circle","vl
 var SWG=4.5;
 
 function $(id){ return document.getElementById(id); }
-function show(id){ if(id!=='ranking' && typeof stopRankWatch==='function') stopRankWatch(); var s=document.querySelectorAll('.screen'); for(var i=0;i<s.length;i++) s[i].classList.remove('active'); $(id).classList.add('active'); document.body.classList.toggle('home-active', id==='home'); }
+function show(id){ if(id!=='ranking' && typeof stopRankWatch==='function') stopRankWatch(); var s=document.querySelectorAll('.screen'); for(var i=0;i<s.length;i++) s[i].classList.remove('active'); $(id).classList.add('active'); document.body.classList.toggle('home-active', id==='home'); document.body.classList.toggle('x2-active', id==='x2'); }
 function two(n){ return (n<10?'0':'')+n; }
 function fmtTime(ms){ var cs=Math.floor(ms/10), cc=cs%100, s=Math.floor(cs/100), sec=s%60, m=Math.floor(s/60); return m+':'+two(sec)+'.'+two(cc); }
 function fmtDate(ts){ if(!ts) return ''; var d=new Date(ts); return two(d.getDate())+'/'+two(d.getMonth()+1); }
@@ -581,6 +643,7 @@ function seg(id){
   var box=$(id);
   box.addEventListener('click', function(e){
     var b=e.target.closest('button'); if(!b || b.hasAttribute('data-soon') || box.classList.contains('off')) return;
+    if(b.getAttribute('data-v')==='x2'){ xToggle(b); return; }
     var all=box.querySelectorAll('button');
     for(var i=0;i<all.length;i++) all[i].classList.remove('sel');
     b.classList.add('sel');
@@ -615,7 +678,8 @@ var LIM_DROP_MS=600;     /* duracion de la caida desde arriba hasta su sitio */
 var LIM_MAX_PENDING=6;   /* si se acumulan mas de 6 sin responder, fin del ejercicio */
 
 function filterInitials(el){ el.value=el.value.replace(/[^A-Za-z]/g,'').toUpperCase(); }
-function startGame(){ try{ var m0=selVal('segModo')||'normal', s0=selVal('segEstimulo')||'estatico'; warmRank(m0, s0, s0==='dinamico'?0:parseInt(selVal('segEnsayos')||'25',10)); }catch(e){}
+function startGame(){ if(isX2()){ startX2(); return; }
+  try{ var m0=selVal('segModo')||'normal', s0=selVal('segEstimulo')||'estatico'; warmRank(m0, s0, s0==='dinamico'?0:parseInt(selVal('segEnsayos')||'25',10)); }catch(e){}
   S.mode=selVal('segModo')||'normal';
   S.stim=selVal('segEstimulo')||'estatico';
   S.total=parseInt(selVal('segEnsayos')||'25',10);
@@ -1433,7 +1497,198 @@ function warmRank(mode,stim,total){
   window.fbLoad(mode,stim,total).then(function(rows){ if(rows){ saveRankCache(rcKey, rows); } }).catch(function(){});
 }
 
-function goHome(){ clearG(); limStop(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
+/* ---------- modo x2: dos jugadores en un movil, sin ranking (2026-11-08; misma estructura que Processing x2) ----------
+   Se combina con Normal o Extremo, siempre Estatico. Jugador 1 = mitad de abajo, jugador 2 = mitad de arriba (girada 180 grados), con un area negra cada uno.
+   Normal: flechas en 4 direcciones. Extremo: flechas, un circulo (un toque) o dos circulos (toque con dos dedos), sin numeros.
+   La flecha se dibuja una vez y apunta a un lado FISICO: lo que para el jugador 1 es abajo, para el 2 es arriba. Al jugador de arriba le basta deslizar hacia donde la ve, porque clientX/clientY son de pantalla y no giran con su zona.
+   Primero en completar el gesto correcto +1. Gesto equivocado o antes de que salga el estimulo: -1 para quien lo hace y +1 para el rival. Tras la primera respuesta se ignora todo X_FREEZE ms.
+   Cada juego = 10 cuadros, mejor de 3. Gana quien tenga X_MARGIN puntos de ventaja al llegar a 10; si no, cuadros extra (puntos parpadeando) hasta conseguirla.
+   Se para antes si ya esta decidido: la ventaja, restando lo maximo que puede recortarse (X_SWING por cuadro restante), sigue siendo >= X_MARGIN. */
+var X={on:false,mode:'normal',pts:[0,0],games:[0,0],gameNo:1,n:0,state:'',t0:0,to:0,hist:[],d:null,prevKey:'',ready:[false,false]};
+var XG=[null,null];   /* gesto en curso de cada jugador */
+var X_TOTAL=10, X_SWING=2, X_MARGIN=2, X_FREEZE=1000, X_WINGAMES=2, X_ORD=['primer','segundo','tercer'];
+function isX2(){ return $('segModo').querySelector('[data-v="x2"]').classList.contains('x2on'); }
+function xToggle(b){
+  var box=$('segModo'), on=b.classList.toggle('x2on'), lim=box.querySelector('[data-v="limite"]');
+  lim.classList.toggle('x2-off',on);   /* x2 solo se combina con Normal o Extremo, siempre Estatico y a 10 */
+  if(on && lim.classList.contains('sel')){ lim.classList.remove('sel'); box.querySelector('[data-v="normal"]').classList.add('sel'); }
+  $('segEstimulo').classList.toggle('off',on);
+  if(on) $('segEnsayos').classList.add('off'); else applyModeUI();
+}
+function xClear(){ if(X.to){ clearTimeout(X.to); X.to=0; } xGClear(); }
+function xGClear(){ for(var p=0;p<2;p++){ if(XG[p] && XG[p].to) clearTimeout(XG[p].to); XG[p]=null; } }
+function xZone(p,sel){ return $('x2z'+p).querySelector(sel); }
+function xFlash(a,b){ xZone(0,'.x2-flash').innerHTML=a||''; xZone(1,'.x2-flash').innerHTML=b||''; }
+function xPanel(p,html){ var e=xZone(p,'.x2-panel'); e.innerHTML=html||''; e.classList.toggle('on',!!html); }
+function xPanelsOff(){ xPanel(0); xPanel(1); }
+function xStim(cls){ var b=$('x2Stim'); b.className=cls||''; b.innerHTML=''; return b; }
+function xBtn(act,txt,sec){ return '<button class="x2-bt'+(sec?' x2-sec':'')+'" type="button" data-x="'+act+'">'+txt+'</button>'; }
+function xRes(a,b){ return a+' &ndash; '+b; }
+function xRender(){
+  var played=X.n-(X.state==='stim'?1:0), extra=X.on && played>=X_TOTAL && Math.abs(X.pts[0]-X.pts[1])<X_MARGIN, p;
+  for(p=0;p<2;p++){
+    var pts=xZone(p,'.x2-pts');
+    pts.innerHTML=xRes(X.pts[p],X.pts[1-p]);
+    pts.classList.toggle('x2-blink',extra);
+    xZone(p,'.x2-gm').innerHTML=xRes(X.games[p],X.games[1-p]);
+    xZone(p,'.x2-cu').textContent=X.n+'/'+X_TOTAL;
+  }
+}
+function xDraw(){   /* nunca el mismo estimulo dos veces seguidas */
+  var d, key;
+  do {
+    if(X.mode==='extremo' && Math.random()>=0.5) d={kind:'tap',fingers:Math.random()<0.5?1:2};
+    else d={kind:'swipe',dir:ARROW_DIRS[Math.floor(Math.random()*4)]};
+    key=d.kind==='tap'?'t'+d.fingers:d.dir;
+  } while(key===X.prevKey);
+  X.prevKey=key;
+  return d;
+}
+function xStimHTML(d){
+  if(d.kind==='swipe') return '<div class="'+(d.dir==='arr'||d.dir==='abj'?'x2-v':'x2-h')+'">'+arrowSVG(d.dir,false)+'</div>';
+  return d.fingers===1?'<i class="x2-dot x2-dot1"></i>':'<i class="x2-dot x2-dot2"></i><i class="x2-dot x2-dot2"></i>';
+}
+function xReset(){ xClear(); X.pts=[0,0]; X.games=[0,0]; X.gameNo=1; X.n=0; X.hist=[]; X.prevKey=''; xPanelsOff(); xFlash(); xStim(); }
+function startX2(){   /* pantalla inicial con la informacion para cada jugador */
+  X.mode=selVal('segModo')==='extremo'?'extremo':'normal';
+  xReset(); X.on=false; X.state='intro'; X.ready=[false,false];
+  show('x2'); $('x2Stop').style.display='block'; xRender();
+  var ext=X.mode==='extremo';
+  for(var p=0;p<2;p++) xPanel(p,'<div class="x2-pt">Jugador '+(p+1)+(ext?' &middot; Extremo':'')+'</div>'
+    +'<div class="x2-pr">Uno contra uno, al mejor de 3 juegos de 10 puntos.<br>Si al llegar a 10 no hay 2 de diferencia, se sigue hasta conseguirla.</div>'
+    +'<div class="x2-rules"><b>Flecha</b>: desliza hacia donde apunta.'+(ext?' <b>Un c&iacute;rculo</b>: un toque. <b>Dos c&iacute;rculos</b>: toque con dos dedos.':'')+'</div>'
+    +xBtn('start','Empezar'));
+}
+function xReady(p,b,a){   /* Empezar/Continuar: arranca cuando lo han pulsado los dos */
+  X.ready[p]=true; b.disabled=true; b.textContent='Esperando';
+  if(!X.ready[0] || !X.ready[1]) return;
+  X.ready=[false,false];
+  if(a==='start') xBegin(); else xContinue();
+}
+function xBegin(){ xReset(); X.on=true; X.state=''; $('x2Stop').style.display='block'; xRender(); xLights(); }
+function xContinue(){ X.pts=[0,0]; X.n=0; X.gameNo++; X.state=''; X.prevKey=''; xPanelsOff(); xFlash(); xRender(); xLights(); }
+function xLights(){   /* semaforo: 3 luces rojas, se quita una cada 0,8 s y al quitar la tercera empieza */
+  var box=xStim('x2-lights'), n=3;
+  X.state='count';
+  function draw(){ var h='', i; for(i=0;i<n;i++) h+='<i class="x2-lt"></i>'; box.innerHTML=h; }
+  draw();
+  function step(){
+    X.to=setTimeout(function(){ X.to=0; if(!X.on) return; n--; if(n<=0){ box.innerHTML=''; xNext(); return; } draw(); step(); }, 800);
+  }
+  step();
+}
+function xNext(){
+  var box=xStim();
+  X.state='wait';
+  X.to=setTimeout(function(){
+    X.to=0; if(!X.on) return;
+    X.d=xDraw();
+    box.innerHTML=xStimHTML(X.d);
+    X.state='stim'; X.n++; X.t0=performance.now(); xRender();
+  }, 500+Math.random()*3500);
+}
+/* kind: 'hit' acierto, 'miss' gesto equivocado, 'early' antes de que salga el estimulo */
+function xResult(p,kind,rt){
+  var msg=['',''];
+  xClear();
+  if(kind==='early'){ X.n++; X.pts[p]--; X.pts[1-p]++; msg[p]='Salida en falso -1'; msg[1-p]='Punto +1'; }
+  else if(kind==='hit'){ X.pts[p]++; msg[p]='Punto &middot; '+Math.round(rt)+' ms'; msg[1-p]='Punto rival'; }
+  else { X.pts[p]--; X.pts[1-p]++; msg[p]='Fallo -1'; msg[1-p]='Fallo rival +1'; }
+  X.state='freeze';
+  xStim();
+  xFlash(msg[0],msg[1]);
+  if(kind==='hit') sndSymbol(); else sndFail();
+  xRender();
+  X.to=setTimeout(function(){ X.to=0; xFlash(); xAfter(); }, X_FREEZE);
+}
+/* Gestos de cada jugador. Sin ventana de confirmacion larga como en el modo de uno: gana el primero, asi que la respuesta se da por buena en cuanto se puede decidir.
+   Un toque: tras FINGER_SYNC ms sin segundo dedo. Dos dedos: al llegar el segundo dentro de FINGER_SYNC. Flecha: al recorrer SWIPE_MIN (o SWIPE_UP_MIN al levantar). */
+function xDown(p,e){
+  if(!X.on) return;
+  if(X.state==='wait'){ xResult(p,'early'); return; }
+  if(X.state!=='stim') return;
+  var d=X.d, g=XG[p], t=performance.now();
+  if(d.kind==='swipe'){
+    if(g){ xResult(p,'miss'); return; }   /* segundo dedo mientras desliza */
+    XG[p]={id:e.pointerId,sx:e.clientX,sy:e.clientY,rt:t-X.t0,to:0};
+    return;
+  }
+  if(!g){
+    var ng=XG[p]={rt:t-X.t0,to:0};
+    ng.to=setTimeout(function(){
+      ng.to=0; if(XG[p]!==ng || X.state!=='stim') return;
+      if(d.fingers===1) xResult(p,'hit',ng.rt); else xResult(p,'miss');
+    }, FINGER_SYNC);
+    return;
+  }
+  if(g.to){ clearTimeout(g.to); g.to=0; }
+  if(d.fingers===2) xResult(p,'hit',g.rt); else xResult(p,'miss');
+}
+function xSwipeEnd(p,g,dx,dy){ if(swipeDir(dx,dy)===X.d.dir) xResult(p,'hit',g.rt); else xResult(p,'miss'); }
+function xMove(p,e){
+  var g=XG[p]; if(!g || X.state!=='stim' || X.d.kind!=='swipe' || g.id!==e.pointerId) return;
+  var dx=e.clientX-g.sx, dy=e.clientY-g.sy;
+  if(Math.sqrt(dx*dx+dy*dy)>=SWIPE_MIN) xSwipeEnd(p,g,dx,dy);
+}
+function xUp(p,e){
+  var g=XG[p]; if(!g || X.state!=='stim' || X.d.kind!=='swipe' || g.id!==e.pointerId) return;
+  if(e.type!=='pointerup'){ XG[p]=null; return; }
+  var dx=e.clientX-g.sx, dy=e.clientY-g.sy;
+  if(Math.sqrt(dx*dx+dy*dy)>=SWIPE_UP_MIN) xSwipeEnd(p,g,dx,dy); else xResult(p,'miss');   /* toco sin deslizar */
+}
+function xAfter(){
+  if(!X.on) return;
+  var rem=Math.max(0,X_TOTAL-X.n), d=X.pts[0]-X.pts[1];
+  if(Math.abs(d)-X_SWING*rem>=X_MARGIN){ xGameEnd(d>0?0:1); return; }
+  xNext();
+}
+function xGameEnd(i){
+  var p, h, j;
+  X.games[i]++; X.hist.push([X.pts[0],X.pts[1]]);
+  if(X.games[i]>=X_WINGAMES){
+    X.on=false; X.state='end'; xRender(); $('x2Stop').style.display='none'; sndSymbol();
+    for(p=0;p<2;p++){
+      for(h=[],j=0;j<X.hist.length;j++) h.push(xRes(X.hist[j][p],X.hist[j][1-p]));
+      xPanel(p,'<div class="x2-pt">'+(p===i?'¡Enhorabuena, Jugador '+(p+1)+'!':'Jugador '+(i+1)+' gana el partido')+'</div>'
+        +'<div class="x2-pr">'+(p===i?'Has ganado el partido ':'Resultado ')+xRes(X.games[p],X.games[1-p])+'<br>Juegos: '+h.join(', ')+'</div>'
+        +'<div class="x2-pbs">'+xBtn('home','Inicio',true)+xBtn('again','Repetir')+'</div>');
+    }
+    return;
+  }
+  X.state='between'; X.ready=[false,false]; xRender();
+  for(p=0;p<2;p++) xPanel(p,'<div class="x2-pt">Jugador '+(i+1)+' gana el '+X_ORD[X.gameNo-1]+' juego</div>'
+    +'<div class="x2-pr">Puntos '+xRes(X.pts[p],X.pts[1-p])+'<br>Juegos '+xRes(X.games[p],X.games[1-p])+'</div>'
+    +xBtn('next','Continuar'));
+}
+function xStop(){
+  if(X.state==='intro'){ goHome(); return; }
+  xClear(); X.on=false; X.state='end'; xStim(); xFlash(); xRender(); $('x2Stop').style.display='none';
+  for(var p=0;p<2;p++) xPanel(p,'<div class="x2-pt">Partida parada</div><div class="x2-pbs">'+xBtn('home','Inicio',true)+xBtn('again','Repetir')+'</div>');
+}
+(function(){
+  var sec=$('x2');
+  function who(e){ var h=e.target.closest ? e.target.closest('.x2-press') : null; return h?parseInt(h.getAttribute('data-p'),10):-1; }
+  sec.addEventListener('pointerdown', function(e){
+    var p=who(e); if(p<0) return;
+    if(e.cancelable) e.preventDefault();
+    try{ e.target.setPointerCapture(e.pointerId); }catch(_){}
+    xDown(p,e);
+  }, {passive:false});
+  sec.addEventListener('pointermove', function(e){ var p=who(e); if(p>=0) xMove(p,e); });
+  sec.addEventListener('pointerup', function(e){ var p=who(e); if(p>=0) xUp(p,e); });
+  sec.addEventListener('pointercancel', function(e){ var p=who(e); if(p>=0) xUp(p,e); });
+  sec.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  sec.addEventListener('click', function(e){
+    var b=e.target.closest ? e.target.closest('[data-x]') : null; if(!b) return;
+    var a=b.getAttribute('data-x');
+    if(a==='start' || a==='next') xReady(parseInt(b.closest('.x2-zone').id.slice(3),10),b,a);
+    else if(a==='again') xBegin();
+    else if(a==='home') goHome();
+  });
+  $('x2Stop').addEventListener('click', xStop);
+})();
+
+function goHome(){ xClear(); X.on=false; X.state=''; clearG(); limStop(); if(S.countIv){clearInterval(S.countIv);S.countIv=0;} if(S.coverTo){clearTimeout(S.coverTo);S.coverTo=0;} S.running=false; S.lock=true; S.stimVisible=false; S.armed=false; hideStim(); show('home'); }
 
 seg('segModo'); seg('segEstimulo'); seg('segEnsayos');
 /* En DINAMICO no hay limite de estimulos: el selector 25/50/100 queda anulado (atenuado). Al volver a Estatico se recupera lo que habia elegido. */
